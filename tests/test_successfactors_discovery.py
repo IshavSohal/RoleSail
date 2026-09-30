@@ -1,6 +1,6 @@
 import urllib.parse
 
-from applypilot.discovery import greenhouse
+from rolesail.discovery import greenhouse
 
 
 def test_fetch_successfactors_jobs_normalizes_and_paginates(monkeypatch):

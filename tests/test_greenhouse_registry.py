@@ -1,4 +1,4 @@
-from applypilot.discovery import ats, greenhouse
+from rolesail.discovery import ats, greenhouse
 
 
 def test_requested_companies_are_in_default_greenhouse_registry() -> None:

@@ -1,6 +1,6 @@
 [project]
-name = "applypilot"
-version = "0.3.0"
+name = "rolesail"
+version = "1.0.0"
 description = "AI-powered end-to-end job application pipeline"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -33,25 +33,26 @@ dev = ["pytest>=7.0", "ruff>=0.1"]
 gmail = ["google-api-python-client>=2.0", "google-auth-oauthlib>=1.0"]
 
 [project.scripts]
-applypilot = "applypilot.cli:app"
+rolesail = "rolesail.cli:app"
+applypilot = "rolesail.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/Pickle-Pixel/ApplyPilot"
-Repository = "https://github.com/Pickle-Pixel/ApplyPilot"
-Issues = "https://github.com/Pickle-Pixel/ApplyPilot/issues"
+Homepage = "https://github.com/IshavSohal/RoleSail"
+Repository = "https://github.com/IshavSohal/RoleSail"
+Issues = "https://github.com/IshavSohal/RoleSail/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/applypilot"]
+packages = ["src/rolesail"]
 
 [tool.hatch.build]
 artifacts = [
-    "src/applypilot/config/*.yaml",
-    "src/applypilot/templates/*.tex",
-    "src/applypilot/web_dist/**/*",
+    "src/rolesail/config/*.yaml",
+    "src/rolesail/templates/*.tex",
+    "src/rolesail/web_dist/**/*",
 ]
 
 [tool.ruff]

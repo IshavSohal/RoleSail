@@ -1,6 +1,6 @@
 import httpx
 
-from applypilot import llm
+from rolesail import llm
 
 
 class _FakeCondition:
@@ -129,7 +129,7 @@ def test_successful_completion_survives_usage_database_failure(monkeypatch) -> N
     client._client.close()
     client._client = httpx.Client(transport=httpx.MockTransport(handler))
     monkeypatch.setattr(
-        "applypilot.usage.record_usage",
+        "rolesail.usage.record_usage",
         lambda **_kwargs: (_ for _ in ()).throw(OSError("unable to open database file")),
     )
 

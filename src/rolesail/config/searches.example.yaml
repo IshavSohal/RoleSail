@@ -1,0 +1,146 @@
+# RoleSail search configuration
+# Copy to ~/.rolesail/searches.yaml and customize for your job search.
+# The wizard (rolesail init) generates a basic version automatically.
+
+# Search queries -- each has a query string and priority tier.
+# Tier 1: High-priority exact matches (searched first, highest precision)
+# Tier 2: Strong matches, broader scope
+# Tier 3: Wide net, high volume, lower precision
+queries:
+  - query: "software engineer"
+    tier: 1
+  - query: "backend engineer"
+    tier: 1
+  - query: "backend developer"
+    tier: 1
+  - query: "full stack developer"
+    tier: 2
+  - query: "full stack engineer"
+    tier: 2
+  - query: "python developer"
+    tier: 2
+  - query: "python engineer"
+    tier: 2
+  - query: "DevOps engineer"
+    tier: 2
+  - query: "site reliability engineer"
+    tier: 2
+  - query: "platform engineer"
+    tier: 2
+  - query: "cloud engineer"
+    tier: 2
+  - query: "data engineer"
+    tier: 2
+  - query: "infrastructure engineer"
+    tier: 2
+  - query: "software developer"
+    tier: 3
+  - query: "developer"
+    tier: 3
+  - query: "systems engineer"
+    tier: 3
+  - query: "automation engineer"
+    tier: 3
+  - query: "solutions engineer"
+    tier: 3
+  - query: "integration engineer"
+    tier: 3
+  - query: "ML engineer"
+    tier: 3
+  - query: "machine learning engineer"
+    tier: 3
+  - query: "AI engineer"
+    tier: 3
+  - query: "security engineer"
+    tier: 3
+
+# Strict discovery allowlist. A posting must contain one of these normalized
+# title phrases before it can be enriched or scored. Remove this key to use the
+# query titles as a backward-compatible fallback.
+include_titles:
+  - "software engineer"
+  - "software engineering"
+  - "software developer"
+  - "frontend engineer"
+  - "frontend developer"
+  - "backend engineer"
+  - "backend developer"
+  - "full stack engineer"
+  - "full stack developer"
+  - "web engineer"
+  - "web developer"
+  - "AI engineer"
+  - "AI developer"
+  - "machine learning engineer"
+  - "machine learning developer"
+  - "ML engineer"
+  - "ML developer"
+  - "SDE"
+
+# Locations to search
+locations:
+  - location: "San Francisco, CA"
+    remote: false
+  - location: "Remote"
+    remote: true
+
+# Hard country boundary. When this list is present, every discovery adapter
+# filters even if one of its source-specific filter switches is disabled.
+allowed_countries:
+  - "Canada"
+  - "United States"
+accept_remote_anywhere: false
+accept_unknown_locations: false
+
+# Optional extra aliases and explicit rejections for job location text.
+location_accept:
+  - "San Francisco"
+  - "Bay Area"
+location_reject_non_remote:
+  - "London, UK"
+  - "India"
+  - "Philippines"
+
+greenhouse_location_filter: true
+ashby_location_filter: true
+lever_location_filter: true
+bigtech_location_filter: true
+
+# Optional startup-wide discovery through https://startup.jobs/api.
+# Set STARTUP_JOBS_API_KEY in ~/.rolesail/.env to enable it. Listings retain
+# their Startup Jobs URL and source credit as required by the API terms.
+startup_jobs:
+  enabled: true
+  max_queries: 10
+  page_size: 50
+  max_pages_per_query: 1
+  location_filter: true
+
+# Country for Indeed/LinkedIn/Google Jobs searches
+country: "USA"
+
+# JobSpy source boards (all available options shown)
+boards:
+  - indeed
+  - linkedin
+  - glassdoor
+  - zip_recruiter
+  - google
+
+# Search defaults
+defaults:
+  results_per_site: 100  # Max results per board per query
+  hours_old: 72          # Only jobs posted within this many hours
+
+# Negative keywords -- skip jobs with these in the title (case-insensitive)
+exclude_titles:
+  - "senior director"
+  - "VP "
+  - "vice president"
+  - "chief"
+  - "intern"
+  - "internship"
+  - "co-op"
+  - "clearance required"
+  - "TS/SCI"
+  - "principal scientist"

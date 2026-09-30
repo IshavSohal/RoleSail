@@ -1,4 +1,4 @@
-from applypilot.enrichment.detail import (
+from rolesail.enrichment.detail import (
     extract_apply_url_deterministic,
     normalize_application_url,
 )

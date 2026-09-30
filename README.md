@@ -1,15 +1,17 @@
 <!-- logo here -->
 
-> **⚠️ ApplyPilot** is the original open-source project, created by [Pickle-Pixel](https://github.com/Pickle-Pixel) and first published on GitHub on **February 17, 2026**. We are **not affiliated** with applypilot.app, useapplypilot.com, or any other product using the "ApplyPilot" name. These sites are **not associated with this project** and may misrepresent what they offer. If you're looking for the autonomous, open-source job application agent — you're in the right place.
+> RoleSail was formerly named ApplyPilot. On first launch, existing data from
+> `~/.applypilot` is copied safely to `~/.rolesail`; the original files remain
+> untouched. The `applypilot` command remains available temporarily as an alias.
 
-# ApplyPilot
+# RoleSail
 
 **Applied to 1,000 jobs in 2 days. Fully autonomous. Open source.**
 
-[![PyPI version](https://img.shields.io/pypi/v/applypilot?color=blue)](https://pypi.org/project/applypilot/)
+[![PyPI version](https://img.shields.io/pypi/v/rolesail?color=blue)](https://pypi.org/project/rolesail/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/Pickle-Pixel/ApplyPilot?style=social)](https://github.com/Pickle-Pixel/ApplyPilot)
+[![GitHub stars](https://img.shields.io/github/stars/IshavSohal/RoleSail?style=social)](https://github.com/IshavSohal/RoleSail)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S01UL5IO)
 
 
@@ -22,21 +24,21 @@ https://github.com/user-attachments/assets/7ee3417f-43d4-4245-9952-35df1e77f2df
 
 ## What It Does
 
-ApplyPilot is a 6-stage autonomous job application pipeline. It discovers jobs across 5+ boards, scores them against your resume with AI, tailors your resume per job, writes cover letters, and **submits applications for you**. It navigates forms, uploads documents, answers screening questions, all hands-free.
+RoleSail is a 6-stage autonomous job application pipeline. It discovers jobs across 5+ boards, scores them against your resume with AI, tailors your resume per job, writes cover letters, and **submits applications for you**. It navigates forms, uploads documents, answers screening questions, all hands-free.
 
 Three commands. That's it.
 
 ```bash
-pip install applypilot
+pip install rolesail
 pip install --no-deps python-jobspy && pip install pydantic tls-client requests markdownify regex
-applypilot init          # one-time setup: resume, profile, preferences, API keys
-applypilot doctor        # verify your setup — shows what's installed and what's missing
-applypilot run           # discover > enrich > score > tailor > cover letters
-applypilot run -w 4      # same but parallel (4 threads for discovery/enrichment)
-applypilot run score --score-workers 3  # parallel scoring with global rate pacing
-applypilot apply         # autonomous browser-driven submission
-applypilot apply -w 3    # parallel apply (3 Chrome instances)
-applypilot apply --dry-run  # fill forms without submitting
+rolesail init          # one-time setup: resume, profile, preferences, API keys
+rolesail doctor        # verify your setup — shows what's installed and what's missing
+rolesail run           # discover > enrich > score > tailor > cover letters
+rolesail run -w 4      # same but parallel (4 threads for discovery/enrichment)
+rolesail run score --score-workers 3  # parallel scoring with global rate pacing
+rolesail apply         # autonomous browser-driven submission
+rolesail apply -w 3    # parallel apply (3 Chrome instances)
+rolesail apply --dry-run  # fill forms without submitting
 ```
 
 > **Why two install commands?** `python-jobspy` pins an exact numpy version in its metadata that conflicts with pip's resolver, but works fine at runtime with any modern numpy. The `--no-deps` flag bypasses the resolver; the second command installs jobspy's actual runtime dependencies. Everything except `python-jobspy` installs normally.
@@ -48,7 +50,7 @@ applypilot apply --dry-run  # fill forms without submitting
 ### Full Pipeline (recommended)
 **Requires:** Python 3.11+, Node.js (for npx), Gemini API key (free), Claude Code CLI, Chrome
 
-Runs all 6 stages, from job discovery to autonomous application submission. This is the full power of ApplyPilot.
+Runs all 6 stages, from job discovery to autonomous application submission. This is the full power of RoleSail.
 
 ### Discovery + Tailoring Only
 **Requires:** Python 3.11+, Gemini API key (free)
@@ -68,15 +70,15 @@ Runs stages 1-5: discovers jobs, scores them, tailors your resume, generates cov
 | **5. Cover Letter** | AI generates a targeted cover letter per job |
 | **6. Auto-Apply** | Claude Code navigates application forms, fills fields, uploads documents, answers questions, and submits |
 
-After a confirmed application, optional **Apollo outreach** finds up to five relevant employees, enriches only verified work emails, and prepares personalized messages for review. You can copy reviewed messages to your personal Gmail Drafts, then review and schedule each one in Gmail. ApplyPilot does not send Gmail drafts.
+After a confirmed application, optional **Apollo outreach** finds up to five relevant employees, enriches only verified work emails, and prepares personalized messages for review. You can copy reviewed messages to your personal Gmail Drafts, then review and schedule each one in Gmail. RoleSail does not send Gmail drafts.
 
 Each stage is independent. Run them all or pick what you need.
 
 ---
 
-## ApplyPilot vs The Alternatives
+## RoleSail vs The Alternatives
 
-| Feature | ApplyPilot | AIHawk | Manual |
+| Feature | RoleSail | AIHawk | Manual |
 |---------|-----------|--------|--------|
 | Job discovery | 5 boards + Workday + direct sites | LinkedIn only | One board at a time |
 | AI scoring | 1-10 fit score per job | Basic filtering | Your gut feeling |
@@ -113,7 +115,7 @@ Each stage is independent. Run them all or pick what you need.
 
 ## Configuration
 
-All generated by `applypilot init`:
+All generated by `rolesail init`:
 
 ### `profile.json`
 Your personal data in one structured file: contact info, work authorization, compensation, experience, skills, resume facts (preserved during tailoring), and EEO defaults. Powers scoring, tailoring, and form auto-fill.
@@ -125,16 +127,16 @@ Job search queries, target titles, locations, boards. Run multiple searches with
 API keys and runtime config: `GEMINI_API_KEY`, `LLM_MODEL`, `LLM_RPM`, `LLM_TPM`, and `CAPSOLVER_API_KEY`
 (optional). Hosted LLMs default to 15 RPM; set either rate limit to `0` to disable it.
 
-### Package configs (shipped with ApplyPilot)
+### Package configs (shipped with RoleSail)
 - `config/employers.yaml` - Workday employer registry (48 preconfigured)
 - `config/ashby_companies.yaml` - Ashby public job-board registry
 - `config/lever_companies.yaml` - Lever public job-board registry (global and EU)
 - `config/sites.yaml` - Direct career sites (30+), blocked sites, base URLs, manual ATS domains
 - `config/searches.example.yaml` - Example search configuration
 
-Set `STARTUP_JOBS_API_KEY` in `~/.applypilot/.env` to add recent listings from
+Set `STARTUP_JOBS_API_KEY` in `~/.rolesail/.env` to add recent listings from
 [Startup Jobs](https://startup.jobs/api). The free API key is optional; when it
-is absent this source is skipped without failing discovery. ApplyPilot retains
+is absent this source is skipped without failing discovery. RoleSail retains
 the Startup Jobs listing URL and labels the source in the dashboard to satisfy
 the feed's attribution requirements. Wellfound is intentionally not scraped;
 its listings can still be added individually through the dashboard.
@@ -168,35 +170,35 @@ The Playwright MCP server is configured automatically at runtime per worker. No 
 
 ```bash
 # Utility modes (no Chrome/Claude needed)
-applypilot apply --mark-applied URL    # manually mark a job as applied
-applypilot apply --unmark-applied URL  # return an applied job to the active queue
-applypilot apply --mark-failed URL     # manually mark a job as failed
-applypilot apply --reset-failed        # reset all failed jobs for retry
-applypilot apply --gen --url URL       # generate prompt file for manual debugging
+rolesail apply --mark-applied URL    # manually mark a job as applied
+rolesail apply --unmark-applied URL  # return an applied job to the active queue
+rolesail apply --mark-failed URL     # manually mark a job as failed
+rolesail apply --reset-failed        # reset all failed jobs for retry
+rolesail apply --gen --url URL       # generate prompt file for manual debugging
 ```
 
 ### Employee Outreach (optional)
 
-ApplyPilot can use Apollo's REST API to contact a balanced hiring circle: a likely manager, functional leader, recruiter, and relevant team members. People are ranked against the role and job location, with company-wide candidates retained as fallbacks for remote roles or sparse local results. At most ten profiles are enriched to find up to five verified work emails, and official company pages plus the job description ground the generated message.
+RoleSail can use Apollo's REST API to contact a balanced hiring circle: a likely manager, functional leader, recruiter, and relevant team members. People are ranked against the role and job location, with company-wide candidates retained as fallbacks for remote roles or sparse local results. At most ten profiles are enriched to find up to five verified work emails, and official company pages plus the job description ground the generated message.
 
-1. Add `APOLLO_API_KEY` and `OUTREACH_ENABLED=true` to `~/.applypilot/.env`. Apollo finds the people; it does not need access to your Gmail account for draft creation.
-2. Install Gmail support: `pip install 'applypilot[gmail]'` (or `pip install -e '.[gmail]'` from this repository).
-3. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the Gmail API, configure the OAuth consent screen (External for a personal Gmail account; add your Gmail address as a test user if the app is in testing), create an **OAuth client ID → Desktop app**, and download its JSON file. An API key is not sufficient. The requested OAuth scope is `gmail.compose`, which permits composing and sending; ApplyPilot's Gmail integration only creates drafts.
-4. Run `applypilot gmail-connect --credentials /path/to/oauth-client.json` and select your **personal** Google account in the browser. The dashboard will show the connected address before you confirm draft creation. OAuth tokens are stored with owner-only file permissions in `~/.applypilot/`; do not commit or share them.
-5. Add 3–10 representative writing samples and your signature under **Profile → Employee Outreach** in the dashboard. Apply normally, edit and select recipients in the applied job's **Outreach** tab, then choose **Create selected Gmail drafts**. Open Gmail Drafts, review each message, and use Gmail's **Schedule send** to set the times. Gmail sends scheduled messages while ApplyPilot is closed.
+1. Add `APOLLO_API_KEY` and `OUTREACH_ENABLED=true` to `~/.rolesail/.env`. Apollo finds the people; it does not need access to your Gmail account for draft creation.
+2. Install Gmail support: `pip install 'rolesail[gmail]'` (or `pip install -e '.[gmail]'` from this repository).
+3. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable the Gmail API, configure the OAuth consent screen (External for a personal Gmail account; add your Gmail address as a test user if the app is in testing), create an **OAuth client ID → Desktop app**, and download its JSON file. An API key is not sufficient. The requested OAuth scope is `gmail.compose`, which permits composing and sending; RoleSail's Gmail integration only creates drafts.
+4. Run `rolesail gmail-connect --credentials /path/to/oauth-client.json` and select your **personal** Google account in the browser. The dashboard will show the connected address before you confirm draft creation. OAuth tokens are stored with owner-only file permissions in `~/.rolesail/`; do not commit or share them.
+5. Add 3–10 representative writing samples and your signature under **Profile → Employee Outreach** in the dashboard. Apply normally, edit and select recipients in the applied job's **Outreach** tab, then choose **Create selected Gmail drafts**. Open Gmail Drafts, review each message, and use Gmail's **Schedule send** to set the times. Gmail sends scheduled messages while RoleSail is closed.
 
-If your Google OAuth consent screen remains **External / Testing**, Google expires its refresh token after seven days for Gmail scopes. Run `applypilot gmail-connect` again when the connection expires. Existing Gmail drafts and Gmail-scheduled messages are unaffected.
+If your Google OAuth consent screen remains **External / Testing**, Google expires its refresh token after seven days for Gmail scopes. Run `rolesail gmail-connect` again when the connection expires. Existing Gmail drafts and Gmail-scheduled messages are unaffected.
 
-ApplyPilot records only that a Gmail draft was created. Scheduling, sending, deleting, and reply handling happen in Gmail; ApplyPilot does not automatically track those later changes or delete a Gmail draft when you change an application's status. Review the recipient, body, and signature in Gmail before scheduling. If draft creation is interrupted, check Gmail Drafts before using the dashboard's explicit retry recovery control, so you do not create a duplicate.
+RoleSail records only that a Gmail draft was created. Scheduling, sending, deleting, and reply handling happen in Gmail; RoleSail does not automatically track those later changes or delete a Gmail draft when you change an application's status. Review the recipient, body, and signature in Gmail before scheduling. If draft creation is interrupted, check Gmail Drafts before using the dashboard's explicit retry recovery control, so you do not create a duplicate.
 
-Apollo search does not reveal email addresses. ApplyPilot enriches candidates in rank order, which consumes Apollo credits, and stops after ten attempts. Personal emails and phone numbers are never requested. Gmail drafts are not sent or scheduled by ApplyPilot; the final browser confirmation creates drafts only. Existing Apollo-scheduled batches remain active until you cancel their remaining sends in the Outreach tab. The legacy Apollo dispatcher and its Profile schedule settings are retained only for previously approved batches/API compatibility; it requires `APOLLO_EMAIL_ACCOUNT_ID` and a running dashboard.
+Apollo search does not reveal email addresses. RoleSail enriches candidates in rank order, which consumes Apollo credits, and stops after ten attempts. Personal emails and phone numbers are never requested. Gmail drafts are not sent or scheduled by RoleSail; the final browser confirmation creates drafts only. Existing Apollo-scheduled batches remain active until you cancel their remaining sends in the Outreach tab. The legacy Apollo dispatcher and its Profile schedule settings are retained only for previously approved batches/API compatibility; it requires `APOLLO_EMAIL_ACCOUNT_ID` and a running dashboard.
 
 Recovery commands do not bypass review:
 
 ```bash
-applypilot outreach --url URL             # show batch status
-applypilot outreach --url URL --prepare   # prepare/re-prepare an unsent batch
-applypilot outreach --url URL --retry     # retry failed preparation or sends
+rolesail outreach --url URL             # show batch status
+rolesail outreach --url URL --prepare   # prepare/re-prepare an unsent batch
+rolesail outreach --url URL --retry     # retry failed preparation or sends
 ```
 
 #### How `--limit` counts jobs
@@ -210,29 +212,29 @@ applypilot outreach --url URL --retry     # retry failed preparation or sends
 ## CLI Reference
 
 ```
-applypilot init                         # First-time setup wizard
-applypilot doctor                       # Verify setup, diagnose missing requirements
-applypilot run [stages...]              # Run pipeline stages (or 'all')
-applypilot run --workers 4              # Override the default 3 discovery/enrichment workers
-applypilot run --score-workers 3        # Parallel scoring (paced by LLM_RPM/LLM_TPM)
-applypilot run                          # Concurrent stages (streaming mode, default)
-applypilot run --no-stream              # Run stages sequentially
-applypilot run --min-score 8            # Override score threshold
-applypilot run --dry-run                # Preview without executing
-applypilot run --validation lenient     # Relax validation (recommended for Gemini free tier)
-applypilot run --validation strict      # Strictest validation (retries on any banned word)
-applypilot apply                        # Launch auto-apply
-applypilot apply --workers 3            # Parallel browser workers
-applypilot apply --dry-run              # Fill forms without submitting
-applypilot apply --continuous           # Run forever, polling for new jobs
-applypilot apply --headless             # Headless browser mode
-applypilot apply --url URL              # Apply to a specific job
-applypilot status                       # Pipeline statistics
-applypilot dashboard                    # Open the live React dashboard
-applypilot outreach --url URL           # Inspect/recover post-application outreach
+rolesail init                         # First-time setup wizard
+rolesail doctor                       # Verify setup, diagnose missing requirements
+rolesail run [stages...]              # Run pipeline stages (or 'all')
+rolesail run --workers 4              # Override the default 3 discovery/enrichment workers
+rolesail run --score-workers 3        # Parallel scoring (paced by LLM_RPM/LLM_TPM)
+rolesail run                          # Concurrent stages (streaming mode, default)
+rolesail run --no-stream              # Run stages sequentially
+rolesail run --min-score 8            # Override score threshold
+rolesail run --dry-run                # Preview without executing
+rolesail run --validation lenient     # Relax validation (recommended for Gemini free tier)
+rolesail run --validation strict      # Strictest validation (retries on any banned word)
+rolesail apply                        # Launch auto-apply
+rolesail apply --workers 3            # Parallel browser workers
+rolesail apply --dry-run              # Fill forms without submitting
+rolesail apply --continuous           # Run forever, polling for new jobs
+rolesail apply --headless             # Headless browser mode
+rolesail apply --url URL              # Apply to a specific job
+rolesail status                       # Pipeline statistics
+rolesail dashboard                    # Open the live React dashboard
+rolesail outreach --url URL           # Inspect/recover post-application outreach
 ```
 
-The dashboard is bundled with ApplyPilot and runs entirely from the local Python server;
+The dashboard is bundled with RoleSail and runs entirely from the local Python server;
 Node.js is not required for normal use. Job and task updates appear without page reloads,
 and workspace filters and the selected job are preserved in the browser URL. Dashboard
 contributors can find the Vite development and release workflow in
@@ -248,6 +250,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, 
 
 ## License
 
-ApplyPilot is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+RoleSail is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
 You are free to use, modify, and distribute this software. If you deploy a modified version as a service, you must release your source code under the same license.

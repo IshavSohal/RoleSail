@@ -1,7 +1,7 @@
 import json
 import urllib.parse
 
-from applypilot.discovery import ats, greenhouse
+from rolesail.discovery import ats, greenhouse
 
 
 def test_fetch_netflix_jobs_normalizes_deduplicates_and_paginates(monkeypatch):

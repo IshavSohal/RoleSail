@@ -1,7 +1,7 @@
 import sqlite3
 
-from applypilot.discovery import greenhouse
-from applypilot.enrichment.detail import (
+from rolesail.discovery import greenhouse
+from rolesail.enrichment.detail import (
     extract_from_apple_hydration,
     reset_incomplete_apple_descriptions,
 )

@@ -1,6 +1,6 @@
 import urllib.parse
 
-from applypilot.discovery import greenhouse
+from rolesail.discovery import greenhouse
 
 
 def _job_card(job_id: str, title: str, location: str, posted_at: str) -> str:

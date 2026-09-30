@@ -22,7 +22,12 @@ const emptyJobs: Job[] = []
 export function JobsPage() {
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
-  const [pipelineRunId, setPipelineRunId] = useState<string | null>(() => sessionStorage.getItem('applypilotPipelineRun'))
+  const [pipelineRunId, setPipelineRunId] = useState<string | null>(() => {
+    const current = sessionStorage.getItem('rolesailPipelineRun')
+    const legacy = sessionStorage.getItem('applypilotPipelineRun')
+    if (!current && legacy) sessionStorage.setItem('rolesailPipelineRun', legacy)
+    return current ?? legacy
+  })
   const jobsQuery = useQuery({ queryKey: ['jobs'], queryFn: api.jobs, staleTime: 3_000 })
   const tailoringQuery = useQuery({
     queryKey: ['tailoring-status'],
@@ -125,7 +130,7 @@ export function JobsPage() {
     mutationFn: api.startPipeline,
     onSuccess: (result) => {
       setPipelineRunId(result.id)
-      sessionStorage.setItem('applypilotPipelineRun', result.id)
+      sessionStorage.setItem('rolesailPipelineRun', result.id)
       void queryClient.invalidateQueries({ queryKey: ['pipeline-status'] })
     },
   })
@@ -284,7 +289,7 @@ function ImportDialog({ onClose }: { onClose: () => void }) {
     <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
         <div className="dialog-head"><h2 id="import-title">Add a job</h2><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>
-        <p className="muted">Paste a public job-posting URL. ApplyPilot will enrich and score it in the background.</p>
+        <p className="muted">Paste a public job-posting URL. RoleSail will enrich and score it in the background.</p>
         <form onSubmit={(event) => { event.preventDefault(); mutation.mutate(url) }}>
           <label className="field">Job URL<input type="url" required autoFocus value={url} placeholder="https://company.com/careers/job…" onChange={(event) => setUrl(event.target.value)} /></label>
           <div className="button-row end"><button type="button" className="button" onClick={onClose}>Close</button><button className="button primary" disabled={mutation.isPending}>{mutation.isPending ? 'Adding…' : 'Add job'}</button></div>
@@ -341,7 +346,7 @@ function JobDetail({ job, tab, tailoring, onChooseBucket }: { job: Job; tab: Det
     <div className="workspace-body">
       <div className="job-actionbar">
         <button className="button" disabled={busy} onClick={() => applied.mutate()}>{job.applied ? 'Mark active' : 'Mark applied'}</button>
-        <button className="button danger" disabled={busy} onClick={() => window.confirm(`Delete “${job.title}” from ApplyPilot?`) && remove.mutate()}>Delete job</button>
+        <button className="button danger" disabled={busy} onClick={() => window.confirm(`Delete “${job.title}” from RoleSail?`) && remove.mutate()}>Delete job</button>
         {notice && <span className="status-line">{notice}</span>}{error && <span className="status-line error">{getError(error)}</span>}
       </div>
       {tab === 'details' && <div className="detail-grid"><article className="card"><h2>About this role</h2><Description text={job.description} /></article><aside className="card action-card"><h2>Actions</h2>{job.salary && <p><strong>{job.salary}</strong></p>}<p className="muted">{job.posted_label} · {job.site}</p>{jobQueued ? <button className="button danger" disabled={busy} onClick={() => cancelTailor.mutate()}>Cancel tailoring</button> : <button className="button primary" disabled={busy || (!job.can_tailor && !job.can_retailor)} onClick={() => tailor.mutate()}>{job.has_tailored ? 'Tailor again' : 'Tailor resume'}</button>}{!job.can_tailor && !job.can_retailor && !job.has_tailored && <p className="muted">A full description is required. Tailoring stops after five attempts.</p>}{job.detail_error && <p className="callout warning">{job.detail_error}</p>}</aside></div>}
@@ -376,7 +381,7 @@ function Resizer() {
     const move = (moveEvent: PointerEvent) => {
       const width = Math.max(260, Math.min(600, startWidth + moveEvent.clientX - startX))
       workspace.style.setProperty('--inbox-width', `${width}px`)
-      localStorage.setItem('applypilotJobInboxWidth', String(Math.round(width)))
+      localStorage.setItem('rolesailJobInboxWidth', String(Math.round(width)))
     }
     const end = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end) }
     window.addEventListener('pointermove', move)
@@ -416,7 +421,10 @@ function importStatusMessage(status?: Record<string, unknown>): string {
 }
 
 function getInboxWidth(): number {
-  const saved = localStorage.getItem('applypilotJobInboxWidth')
+  const current = localStorage.getItem('rolesailJobInboxWidth')
+  const legacy = localStorage.getItem('applypilotJobInboxWidth')
+  if (!current && legacy) localStorage.setItem('rolesailJobInboxWidth', legacy)
+  const saved = current ?? legacy
   if (saved === null) return 340
   const value = Number(saved)
   return Number.isFinite(value) ? Math.max(260, Math.min(600, value)) : 340

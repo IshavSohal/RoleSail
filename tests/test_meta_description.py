@@ -1,6 +1,6 @@
 import sqlite3
 
-from applypilot.enrichment.detail import (
+from rolesail.enrichment.detail import (
     extract_from_meta_details,
     reset_incomplete_meta_descriptions,
 )

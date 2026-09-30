@@ -2,8 +2,8 @@ import json
 import sqlite3
 import urllib.parse
 
-from applypilot.discovery import greenhouse
-from applypilot.enrichment.detail import (
+from rolesail.discovery import greenhouse
+from rolesail.enrichment.detail import (
     extract_from_microsoft_details,
     reset_incomplete_microsoft_descriptions,
 )

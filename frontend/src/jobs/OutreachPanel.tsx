@@ -109,7 +109,7 @@ export function OutreachPanel({ job }: { job: Job }) {
       </div>
       <div className="button-row wrap">
         {editable && editableRecipients && <button className="button primary" disabled={action.isPending} onClick={createDrafts}>Create selected Gmail drafts</button>}
-        {editable && !gmailAccount && <span className="muted">Connect Gmail with <code>applypilot gmail-connect</code>.</span>}
+        {editable && !gmailAccount && <span className="muted">Connect Gmail with <code>rolesail gmail-connect</code>.</span>}
         {drafts.some((recipient) => recipient.status === 'drafted') && <a className="button" href={`https://mail.google.com/mail/?authuser=${encodeURIComponent(drafts.find((item) => item.gmail_account_email)?.gmail_account_email ?? gmailAccount ?? '')}#drafts`} target="_blank" rel="noreferrer">Open Gmail Drafts</a>}
         {['ready_for_review', 'cancelled'].includes(batch.status) && drafts.length > 0 && <ConfirmAction label="Redraft emails" prompt="Replace every editable subject and message with newly generated drafts?" onConfirm={() => action.mutate({ name: 'redraft', body: { batch_id: batch.id } })} />}
         {['failed', 'partial_failed'].includes(batch.status) && !drafts.length && <button className="button" onClick={() => action.mutate({ name: 'retry', body: { batch_id: batch.id } })}>Retry preparation</button>}

@@ -8,10 +8,10 @@ from email.parser import BytesParser
 
 import pytest
 
-from applypilot.database import init_db
-from applypilot.outreach import gmail as gmail_module
-from applypilot.outreach.gmail import GmailDraftClient
-from applypilot.outreach.service import create_gmail_drafts, reset_uncertain_gmail_draft, retry_batch
+from rolesail.database import init_db
+from rolesail.outreach import gmail as gmail_module
+from rolesail.outreach.gmail import GmailDraftClient
+from rolesail.outreach.service import create_gmail_drafts, reset_uncertain_gmail_draft, retry_batch
 
 
 class FakeGmail:
@@ -31,7 +31,7 @@ class FakeGmail:
 @pytest.fixture
 def batch_db(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"personal": {"full_name": "Test User"}},
     )
     conn = init_db(tmp_path / "gmail.db")
@@ -110,7 +110,7 @@ def test_gmail_draft_creation_removes_manual_hard_wraps(batch_db):
 
 def test_gmail_draft_creation_rechecks_edited_introduction(batch_db, monkeypatch):
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"personal": {"full_name": "Ishav Sohal"}},
     )
     gmail = FakeGmail()

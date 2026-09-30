@@ -7,10 +7,10 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
-from applypilot.dashboard_server import mark_job_applied, unmark_job_applied
-from applypilot.database import init_db
-from applypilot.outreach.apollo import ApolloClient, ApolloError
-from applypilot.outreach.service import (
+from rolesail.dashboard_server import mark_job_applied, unmark_job_applied
+from rolesail.database import init_db
+from rolesail.outreach.apollo import ApolloClient, ApolloError
+from rolesail.outreach.service import (
     _flowing_email_body,
     _generate_messages,
     _introduction_employer,
@@ -110,8 +110,8 @@ def test_enqueue_is_disabled_by_default(outreach_db, monkeypatch):
 
 def test_reapplying_regenerates_cancelled_unsent_outreach(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
-    monkeypatch.setattr("applypilot.outreach.service.fetch_official_pages", lambda _domain: [])
-    monkeypatch.setattr("applypilot.outreach.service.config.load_profile", dict)
+    monkeypatch.setattr("rolesail.outreach.service.fetch_official_pages", lambda _domain: [])
+    monkeypatch.setattr("rolesail.outreach.service.config.load_profile", dict)
     generations = []
 
     def generate(_job, recipients, _research, _profile):
@@ -122,7 +122,7 @@ def test_reapplying_regenerates_cancelled_unsent_outreach(outreach_db, monkeypat
             for recipient in recipients
         ]
 
-    monkeypatch.setattr("applypilot.outreach.service._generate_messages", generate)
+    monkeypatch.setattr("rolesail.outreach.service._generate_messages", generate)
     url = "https://jobs.example.com/backend"
     first = enqueue_for_job(url, outreach_db)
     prepared = prepare_batch(first["id"], conn=outreach_db, apollo=FakeApollo())
@@ -217,8 +217,8 @@ def test_startup_recovers_job_reapplied_before_upgrade(outreach_db, monkeypatch)
 
 def test_reapplication_during_preparation_discards_stale_results(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
-    monkeypatch.setattr("applypilot.outreach.service.fetch_official_pages", lambda _domain: [])
-    monkeypatch.setattr("applypilot.outreach.service.config.load_profile", dict)
+    monkeypatch.setattr("rolesail.outreach.service.fetch_official_pages", lambda _domain: [])
+    monkeypatch.setattr("rolesail.outreach.service.config.load_profile", dict)
     url = "https://jobs.example.com/backend"
     batch = enqueue_for_job(url, outreach_db)
     generations = []
@@ -234,7 +234,7 @@ def test_reapplication_during_preparation_discards_stale_results(outreach_db, mo
             for recipient in recipients
         ]
 
-    monkeypatch.setattr("applypilot.outreach.service._generate_messages", generate)
+    monkeypatch.setattr("rolesail.outreach.service._generate_messages", generate)
     stale = prepare_batch(batch["id"], conn=outreach_db, apollo=FakeApollo())
     assert stale["status"] == "queued"
     assert stale["recipients"] == []
@@ -248,9 +248,9 @@ def test_reapplication_during_preparation_discards_stale_results(outreach_db, mo
 def test_prepare_review_and_send_are_idempotent(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
     monkeypatch.setenv("APOLLO_EMAIL_ACCOUNT_ID", "mailbox-1")
-    monkeypatch.setattr("applypilot.outreach.service.fetch_official_pages", lambda _domain: [])
+    monkeypatch.setattr("rolesail.outreach.service.fetch_official_pages", lambda _domain: [])
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {
             "personal": {"full_name": "Test User"},
             "resume_facts": {"real_metrics": ["Built production Python services"]},
@@ -258,7 +258,7 @@ def test_prepare_review_and_send_are_idempotent(outreach_db, monkeypatch):
         },
     )
     monkeypatch.setattr(
-        "applypilot.outreach.service._generate_messages",
+        "rolesail.outreach.service._generate_messages",
         lambda _job, recipients, _research, _profile: [
             {
                 **recipient,
@@ -319,7 +319,7 @@ def test_prepare_review_and_send_are_idempotent(outreach_db, monkeypatch):
 def test_approval_rechecks_edited_introduction(outreach_db, monkeypatch):
     monkeypatch.setenv("APOLLO_EMAIL_ACCOUNT_ID", "mailbox-1")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"personal": {"full_name": "Ishav Sohal"}},
     )
     outreach_db.execute(
@@ -395,7 +395,7 @@ def test_redraft_batch_reuses_recipients_and_preserves_suppressed_contacts(
 ):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"personal": {"full_name": "Test User"}},
     )
     batch = enqueue_for_job("https://jobs.example.com/backend", outreach_db)
@@ -443,7 +443,7 @@ def test_redraft_batch_reuses_recipients_and_preserves_suppressed_contacts(
             "validation_errors": [],
         }]
 
-    monkeypatch.setattr("applypilot.outreach.service._generate_messages", generate)
+    monkeypatch.setattr("rolesail.outreach.service._generate_messages", generate)
 
     result = redraft_batch(batch["id"], conn=outreach_db)
 
@@ -482,6 +482,7 @@ def test_redraft_batch_refuses_after_gmail_drafting_has_started(
 
 def test_failed_redraft_keeps_the_previous_messages(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
+    monkeypatch.setattr("rolesail.outreach.service.config.load_profile", dict)
     batch = enqueue_for_job("https://jobs.example.com/backend", outreach_db)
     outreach_db.execute(
         "INSERT INTO outreach_recipients "
@@ -496,7 +497,7 @@ def test_failed_redraft_keeps_the_previous_messages(outreach_db, monkeypatch):
     )
     outreach_db.commit()
     monkeypatch.setattr(
-        "applypilot.outreach.service._generate_messages",
+        "rolesail.outreach.service._generate_messages",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("LLM unavailable")),
     )
 
@@ -513,7 +514,7 @@ def test_failed_redraft_keeps_the_previous_messages(outreach_db, monkeypatch):
 def test_schedule_preview_uses_two_waves_and_skips_weekend(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"outreach": {"schedule": {"timezone": "America/Toronto"}}},
     )
     batch = enqueue_for_job("https://jobs.example.com/backend", outreach_db)
@@ -553,7 +554,7 @@ def test_schedule_preview_uses_two_waves_and_skips_weekend(outreach_db, monkeypa
 def test_schedule_preview_respects_daily_limit(outreach_db, monkeypatch):
     monkeypatch.setenv("OUTREACH_ENABLED", "true")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"outreach": {"schedule": {"timezone": "America/Toronto", "daily_limit": 15}}},
     )
     batch = enqueue_for_job("https://jobs.example.com/backend", outreach_db)
@@ -637,7 +638,7 @@ def test_cancel_pending_marks_partially_sent_batch_stopped(outreach_db, monkeypa
 def test_dispatcher_does_not_send_outside_business_window(outreach_db, monkeypatch):
     monkeypatch.setenv("APOLLO_EMAIL_ACCOUNT_ID", "mailbox-1")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"outreach": {"schedule": {"timezone": "America/Toronto"}}},
     )
     batch_id = "scheduled-batch"
@@ -679,7 +680,7 @@ def test_transient_dispatch_failure_is_rescheduled(outreach_db, monkeypatch):
 
     monkeypatch.setenv("APOLLO_EMAIL_ACCOUNT_ID", "mailbox-1")
     monkeypatch.setattr(
-        "applypilot.outreach.service.config.load_profile",
+        "rolesail.outreach.service.config.load_profile",
         lambda: {"outreach": {"schedule": {"timezone": "America/Toronto"}}},
     )
     due = "2026-09-14T14:00:00+00:00"
@@ -945,7 +946,7 @@ def test_generation_prompt_enforces_voice_and_human_wording(monkeypatch):
                 "used_facts": ["The role focuses on reliable Python services"],
             }])
 
-    monkeypatch.setattr("applypilot.llm.get_client", lambda: CapturingLLM())
+    monkeypatch.setattr("rolesail.llm.get_client", lambda: CapturingLLM())
     messages = _generate_messages(
         {
             "url": "https://jobs.example.com/backend",

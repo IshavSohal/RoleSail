@@ -7,7 +7,7 @@ import { ProfilePage } from './profile/ProfilePage'
 
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('applypilotTheme')
+    const saved = localStorage.getItem('rolesailTheme') ?? localStorage.getItem('applypilotTheme')
     if (saved === 'light' || saved === 'dark') return saved
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
@@ -16,13 +16,13 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    localStorage.setItem('applypilotTheme', theme)
+    localStorage.setItem('rolesailTheme', theme)
   }, [theme])
 
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <NavLink to="/" className="brand">ApplyPilot</NavLink>
+        <NavLink to="/" className="brand">RoleSail</NavLink>
         <nav aria-label="Application">
           <NavLink to="/" end>Job inbox</NavLink>
           <NavLink to="/profile">Profile</NavLink>
@@ -82,4 +82,3 @@ function UsageCard({ label, value }: { label: string; value?: { cost_usd: number
 function UsageGroup({ label, values }: { label: string; values: Array<{ name: string; cost_usd: number; requests: number }> }) { return <section className="usage-group"><h3>{label}</h3>{values.length ? values.map((value) => <div key={value.name}><span>{value.name}</span><strong>{money(value.cost_usd)}</strong></div>) : <p className="muted">No usage yet.</p>}</section> }
 function money(value?: number): string { const amount = Number(value ?? 0); return `$${amount.toFixed(amount > 0 && amount < .01 ? 4 : 2)}` }
 function message(error: unknown): string { return error instanceof Error ? error.message : 'Something went wrong.' }
-

@@ -1,7 +1,7 @@
 {
-  "name": "applypilot-dashboard",
+  "name": "rolesail-dashboard",
   "private": true,
-  "version": "0.3.0",
+  "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": ">=20.19"
@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:check": "npm run build && git diff --exit-code -- ../src/applypilot/web_dist",
+    "build:check": "npm run build && git diff --exit-code -- ../src/rolesail/web_dist",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",

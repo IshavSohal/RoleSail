@@ -1,6 +1,6 @@
-# Contributing to ApplyPilot
+# Contributing to RoleSail
 
-Thank you for your interest in contributing to ApplyPilot. This guide covers everything you need to get started.
+Thank you for your interest in contributing to RoleSail. This guide covers everything you need to get started.
 
 ## Development Setup
 
@@ -13,13 +13,13 @@ Thank you for your interest in contributing to ApplyPilot. This guide covers eve
 ### Clone and Install
 
 ```bash
-git clone https://github.com/Pickle-Pixel/ApplyPilot.git
-cd ApplyPilot
+git clone https://github.com/IshavSohal/RoleSail.git
+cd RoleSail
 pip install -e ".[dev]"
 playwright install chromium
 ```
 
-This installs ApplyPilot in editable mode with all development dependencies (pytest, ruff, etc.) and downloads the Chromium browser binary for Playwright.
+This installs RoleSail in editable mode with all development dependencies (pytest, ruff, etc.) and downloads the Chromium browser binary for Playwright.
 
 ### Dashboard Development
 
@@ -27,7 +27,7 @@ The dashboard is a React + TypeScript application in `frontend/`. Start the
 Python API in one terminal:
 
 ```bash
-applypilot dashboard --no-open
+rolesail dashboard --no-open
 ```
 
 Then start Vite in another terminal. Its development server proxies `/api` to
@@ -41,14 +41,14 @@ npm run dev
 
 Use `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` to test
 and build the frontend. Production assets are written to
-`src/applypilot/web_dist/` and are committed so installed Python packages do
+`src/rolesail/web_dist/` and are committed so installed Python packages do
 not require Node.js. Before a release, run `npm run build:check` and commit any
 changed assets.
 
 ### Verify Installation
 
 ```bash
-applypilot --version
+rolesail --version
 pytest tests/ -v
 ruff check src/
 ```
@@ -70,13 +70,13 @@ Workday employer portals are configured in `config/employers.yaml`. To add a new
   url: "https://company.wd5.myworkdaysite.com/en-US/recruiting"
 ```
 
-4. Test discovery: `applypilot discover --employer "Company Name"`
+4. Test discovery: `rolesail discover --employer "Company Name"`
 5. Submit a PR with the new entry
 
 ### Adding Ashby or Lever Employers
 
 Ashby and Lever expose public, unauthenticated job-board APIs. Add an Ashby
-company to `src/applypilot/config/ashby_companies.yaml` using the slug from
+company to `src/rolesail/config/ashby_companies.yaml` using the slug from
 `https://jobs.ashbyhq.com/<slug>`:
 
 ```yaml
@@ -84,7 +84,7 @@ companies:
   example: { name: "Example", board: "example" }
 ```
 
-Add a Lever company to `src/applypilot/config/lever_companies.yaml` using the
+Add a Lever company to `src/rolesail/config/lever_companies.yaml` using the
 slug from `https://jobs.lever.co/<slug>`. Lever boards hosted in the EU must
 also set `region: eu`:
 
@@ -94,7 +94,7 @@ companies:
   example_eu: { name: "Example EU", site: "example-eu", region: "eu" }
 ```
 
-Run `applypilot run discover` and confirm the source reports jobs without an
+Run `rolesail run discover` and confirm the source reports jobs without an
 adapter error.
 
 ### Adding New Career Sites
@@ -115,12 +115,12 @@ Direct career site scrapers are configured in `config/sites.yaml`. To add a new 
     description: ".job-description"
 ```
 
-3. Test: `applypilot discover --site "Company Name"`
+3. Test: `rolesail discover --site "Company Name"`
 4. Submit a PR
 
 ### Bug Fixes and Features
 
-1. Check existing [issues](https://github.com/Pickle-Pixel/ApplyPilot/issues) to avoid duplicating work
+1. Check existing [issues](https://github.com/IshavSohal/RoleSail/issues) to avoid duplicating work
 2. For new features, open an issue first to discuss the approach
 3. Fork the repo and create a feature branch from `main`
 4. Write your code with type hints and docstrings
@@ -138,12 +138,12 @@ pytest tests/ -v
 pytest tests/test_scoring.py -v
 
 # Run with coverage
-pytest tests/ --cov=src/applypilot --cov-report=term-missing
+pytest tests/ --cov=src/rolesail --cov-report=term-missing
 ```
 
 ## Linting and Code Style
 
-ApplyPilot uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
+RoleSail uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
 
 ```bash
 # Check for issues
@@ -176,8 +176,8 @@ ruff format src/
 ## Project Structure
 
 ```
-ApplyPilot/
-├── src/applypilot/       # Main package
+RoleSail/
+├── src/rolesail/       # Main package
 │   ├── __init__.py
 │   ├── cli.py            # CLI entry points
 │   ├── discover/         # Stage 1: job discovery scrapers
@@ -195,4 +195,4 @@ ApplyPilot/
 
 ## License
 
-By contributing to ApplyPilot, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0](LICENSE).
+By contributing to RoleSail, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0](LICENSE).

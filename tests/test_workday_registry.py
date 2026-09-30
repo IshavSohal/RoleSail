@@ -1,5 +1,5 @@
-from applypilot.database import init_db
-from applypilot.discovery import workday
+from rolesail.database import init_db
+from rolesail.discovery import workday
 
 
 def test_capital_one_is_in_default_workday_registry() -> None:

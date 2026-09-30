@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: '../src/applypilot/web_dist',
+    outDir: '../src/rolesail/web_dist',
     emptyOutDir: true,
     sourcemap: false,
   },

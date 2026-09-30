@@ -1,7 +1,7 @@
 import json
 
-from applypilot import dashboard_server, usage
-from applypilot.database import get_connection, init_db
+from rolesail import dashboard_server, usage
+from rolesail.database import get_connection, init_db
 
 
 def _isolated_usage(tmp_path, monkeypatch):
@@ -120,8 +120,8 @@ def test_dashboard_pipeline_stops_after_scoring(monkeypatch):
         return {"stages": [], "errors": {}, "elapsed": 0}
 
     updates = []
-    monkeypatch.setattr("applypilot.pipeline.run_pipeline", run_pipeline)
-    monkeypatch.setattr("applypilot.usage.update_run", lambda run_id, **kwargs: updates.append((run_id, kwargs)))
+    monkeypatch.setattr("rolesail.pipeline.run_pipeline", run_pipeline)
+    monkeypatch.setattr("rolesail.usage.update_run", lambda run_id, **kwargs: updates.append((run_id, kwargs)))
     dashboard_server._execute_dashboard_pipeline(object(), "run-1", 3)
 
     assert captured["stages"] == ["discover", "enrich", "score"]

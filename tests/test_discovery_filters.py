@@ -4,15 +4,15 @@ from datetime import UTC, datetime
 
 import pytest
 
-from applypilot.database import (
+from rolesail.database import (
     get_jobs_by_stage,
     init_db,
     is_job_within_retention_window,
     normalize_posted_at,
     normalize_relative_posted_dates,
 )
-from applypilot.discovery import workday
-from applypilot.discovery.filters import (
+from rolesail.discovery import workday
+from rolesail.discovery.filters import (
     classify_title,
     load_include_titles,
     reconcile_unscored_jobs,

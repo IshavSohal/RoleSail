@@ -1,8 +1,8 @@
 import threading
 from pathlib import Path
 
-from applypilot.database import init_db
-from applypilot.scoring import scorer
+from rolesail.database import init_db
+from rolesail.scoring import scorer
 
 
 def _job(description: str = "Requires 5+ years of professional experience.") -> dict:

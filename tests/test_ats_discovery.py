@@ -1,7 +1,7 @@
 import json
 import sqlite3
 
-from applypilot.discovery import ats
+from rolesail.discovery import ats
 
 
 def _jobs_connection() -> sqlite3.Connection:

@@ -1,4 +1,4 @@
-from applypilot.view import format_job_description_html
+from rolesail.view import format_job_description_html
 
 
 def test_job_description_headings_are_bolded_and_body_text_is_not():

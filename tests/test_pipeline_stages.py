@@ -5,23 +5,23 @@ from __future__ import annotations
 import inspect
 from datetime import UTC, datetime
 
-from applypilot import pipeline
-from applypilot.database import delete_jobs_older_than, get_jobs_by_stage, get_stats, init_db
-from applypilot.pipeline import _PENDING_SQL, _resolve_stages
+from rolesail import pipeline
+from rolesail.database import delete_jobs_older_than, get_jobs_by_stage, get_stats, init_db
+from rolesail.pipeline import _PENDING_SQL, _resolve_stages
 
 
 def test_discover_includes_enrich_and_score_when_llm_available(monkeypatch) -> None:
-    monkeypatch.setattr("applypilot.config.get_tier", lambda: 2)
+    monkeypatch.setattr("rolesail.config.get_tier", lambda: 2)
     assert _resolve_stages(["discover"]) == ["discover", "enrich", "score"]
 
 
 def test_discover_stays_alone_without_llm(monkeypatch) -> None:
-    monkeypatch.setattr("applypilot.config.get_tier", lambda: 1)
+    monkeypatch.setattr("rolesail.config.get_tier", lambda: 1)
     assert _resolve_stages(["discover"]) == ["discover"]
 
 
 def test_discover_with_later_stages_keeps_order(monkeypatch) -> None:
-    monkeypatch.setattr("applypilot.config.get_tier", lambda: 2)
+    monkeypatch.setattr("rolesail.config.get_tier", lambda: 2)
     assert _resolve_stages(["discover", "tailor"]) == [
         "discover",
         "enrich",
@@ -31,7 +31,7 @@ def test_discover_with_later_stages_keeps_order(monkeypatch) -> None:
 
 
 def test_explicit_score_only_unchanged(monkeypatch) -> None:
-    monkeypatch.setattr("applypilot.config.get_tier", lambda: 2)
+    monkeypatch.setattr("rolesail.config.get_tier", lambda: 2)
     assert _resolve_stages(["score"]) == ["score"]
 
 

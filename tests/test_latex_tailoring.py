@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from applypilot import config
-from applypilot.dashboard_server import load_tailored_artifact
-from applypilot.database import init_db
-from applypilot.scoring import latex, tailor
-from applypilot.scoring.tailor import (
+from rolesail import config
+from rolesail.dashboard_server import load_tailored_artifact
+from rolesail.database import init_db
+from rolesail.scoring import latex, tailor
+from rolesail.scoring.tailor import (
     _build_tailor_prompt,
     build_source_bullet_catalog,
     judge_tailored_resume,
@@ -17,7 +17,7 @@ from applypilot.scoring.tailor import (
     sort_experience_newest_first,
     tailor_resume,
 )
-from applypilot.scoring.validator import validate_json_fields
+from rolesail.scoring.validator import validate_json_fields
 
 
 def _profile() -> dict:

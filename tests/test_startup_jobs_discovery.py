@@ -1,7 +1,7 @@
 import json
 from datetime import UTC, datetime
 
-from applypilot.discovery import startup_jobs
+from rolesail.discovery import startup_jobs
 
 
 def test_fetch_startup_jobs_paginates_normalizes_and_deduplicates(monkeypatch):
@@ -63,7 +63,7 @@ def test_run_startup_jobs_skips_without_api_key(monkeypatch):
 
 
 def test_run_startup_jobs_filters_persists_and_prefers_direct_source(monkeypatch, tmp_path):
-    from applypilot.database import init_db
+    from rolesail.database import init_db
 
     conn = init_db(tmp_path / "jobs.db")
     conn.execute(

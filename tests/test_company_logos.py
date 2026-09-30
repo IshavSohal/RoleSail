@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from applypilot import company_logos
+from rolesail import company_logos
 
 
 def test_company_logo_candidates_backfill_known_company() -> None:

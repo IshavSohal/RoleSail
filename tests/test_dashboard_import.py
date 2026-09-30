@@ -13,11 +13,11 @@ import urllib.request
 import pytest
 import yaml
 
-from applypilot import config, dashboard_server
-from applypilot.apply.prompt import _build_salary_section
-from applypilot.config import location_filter_is_mandatory, location_is_allowed
-from applypilot.dashboard_data import load_dashboard_jobs
-from applypilot.dashboard_server import (
+from rolesail import config, dashboard_server
+from rolesail.apply.prompt import _build_salary_section
+from rolesail.config import location_filter_is_mandatory, location_is_allowed
+from rolesail.dashboard_data import load_dashboard_jobs
+from rolesail.dashboard_server import (
     DashboardHTTPServer,
     DashboardRequestHandler,
     cancel_tailoring,
@@ -37,14 +37,14 @@ from applypilot.dashboard_server import (
     tailoring_status,
     unmark_job_applied,
 )
-from applypilot.database import get_connection, init_db
-from applypilot.enrichment.detail import extract_job_metadata, scrape_detail_page
-from applypilot.view import applied_view, format_applied_at, format_posted_at
+from rolesail.database import get_connection, init_db
+from rolesail.enrichment.detail import extract_job_metadata, scrape_detail_page
+from rolesail.view import applied_view, format_applied_at, format_posted_at
 
 
 @pytest.fixture
 def db(tmp_path):
-    connection = init_db(tmp_path / "applypilot.db")
+    connection = init_db(tmp_path / "rolesail.db")
     yield connection
     connection.close()
 
@@ -160,7 +160,7 @@ def test_backfill_konrad_metadata_uses_greenhouse_location(db, monkeypatch) -> N
         db,
     )
     monkeypatch.setattr(
-        "applypilot.discovery.greenhouse.fetch_company_jobs",
+        "rolesail.discovery.greenhouse.fetch_company_jobs",
         lambda board: [
             {
                 "id": 7860136003,
@@ -267,9 +267,9 @@ def test_enrich_external_job_automatically_scores_import(monkeypatch, tmp_path) 
     monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 2)
     monkeypatch.setattr(config, "location_is_allowed", lambda _location: True)
-    monkeypatch.setattr("applypilot.enrichment.detail.scrape_site_batch", fake_scrape)
+    monkeypatch.setattr("rolesail.enrichment.detail.scrape_site_batch", fake_scrape)
     monkeypatch.setattr(
-        "applypilot.scoring.scorer.run_scoring",
+        "rolesail.scoring.scorer.run_scoring",
         lambda **kwargs: calls.append(kwargs) or {"scored": 1},
     )
 
@@ -300,11 +300,11 @@ def test_enrich_external_job_scores_when_location_is_unknown(monkeypatch, tmp_pa
         lambda _location: (_ for _ in ()).throw(AssertionError("unknown location was filtered")),
     )
     monkeypatch.setattr(
-        "applypilot.enrichment.detail.scrape_site_batch",
+        "rolesail.enrichment.detail.scrape_site_batch",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("job was rescraped")),
     )
     monkeypatch.setattr(
-        "applypilot.scoring.scorer.run_scoring",
+        "rolesail.scoring.scorer.run_scoring",
         lambda **kwargs: calls.append(kwargs) or {"scored": 1},
     )
 
@@ -328,7 +328,7 @@ def test_enrich_external_amazon_job_uses_exact_api_record(monkeypatch, tmp_path)
     monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 1)
     monkeypatch.setattr(
-        "applypilot.discovery.greenhouse.fetch_amazon_job",
+        "rolesail.discovery.greenhouse.fetch_amazon_job",
         lambda job_id: {
             "id": job_id,
             "title": "Software Development Engineer, Early Career - 2026",
@@ -350,7 +350,7 @@ def test_enrich_external_amazon_job_uses_exact_api_record(monkeypatch, tmp_path)
         raise AssertionError("generic scraper should not run for a complete Amazon API record")
 
     monkeypatch.setattr(
-        "applypilot.enrichment.detail.scrape_site_batch",
+        "rolesail.enrichment.detail.scrape_site_batch",
         fail_generic_scrape,
     )
 
@@ -384,7 +384,7 @@ def test_enrich_external_salesforce_job_uses_workday_api(monkeypatch, tmp_path) 
     monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 1)
     monkeypatch.setattr(
-        "applypilot.discovery.workday.workday_search",
+        "rolesail.discovery.workday.workday_search",
         lambda employer, search_text, limit: {
             "jobPostings": [{
                 "title": "AI Builder, Emerging Talent",
@@ -394,7 +394,7 @@ def test_enrich_external_salesforce_job_uses_workday_api(monkeypatch, tmp_path) 
         },
     )
     monkeypatch.setattr(
-        "applypilot.discovery.workday.workday_detail",
+        "rolesail.discovery.workday.workday_detail",
         lambda employer, path: {
             "jobPostingInfo": {
                 "title": "AI Builder, Emerging Talent",
@@ -409,7 +409,7 @@ def test_enrich_external_salesforce_job_uses_workday_api(monkeypatch, tmp_path) 
     )
 
     monkeypatch.setattr(
-        "applypilot.enrichment.detail.scrape_site_batch",
+        "rolesail.enrichment.detail.scrape_site_batch",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("generic scraper should not run for a Workday-backed URL")
         ),
@@ -679,7 +679,7 @@ def settings_files(tmp_path, monkeypatch):
                 },
                 "resume_facts": {
                     "preserved_companies": ["Example Corp"],
-                    "preserved_projects": ["ApplyPilot"],
+                    "preserved_projects": ["RoleSail"],
                     "preserved_school": "Example University",
                     "real_metrics": ["50% faster"],
                 },
@@ -846,7 +846,7 @@ def test_salary_prompt_accepts_numeric_profile_values() -> None:
 def test_dashboard_search_settings_can_clear_numeric_default(settings_files) -> None:
     _, search_path = settings_files
     searches = load_dashboard_settings()["searches"]
-    searches["defaults"]["distance"] = {"__applypilot_delete__": True}
+    searches["defaults"]["distance"] = {"__rolesail_delete__": True}
 
     save_dashboard_searches(searches)
 
@@ -1100,7 +1100,7 @@ def test_load_dashboard_company_logo_uses_stored_logo_url(db, monkeypatch) -> No
         calls.append((company, source_url))
         return b"logo", "image/png"
 
-    monkeypatch.setattr("applypilot.company_logos.load_company_logo", fake_load)
+    monkeypatch.setattr("rolesail.company_logos.load_company_logo", fake_load)
 
     assert load_dashboard_company_logo(imported["url"], db) == (b"logo", "image/png")
     assert calls == [("Example Corp", "https://cdn.example.com/logo.png")]
@@ -1119,7 +1119,7 @@ def test_load_dashboard_company_logo_backfills_existing_company(db, monkeypatch)
         calls.append((company, source_url))
         return (b"logo", "image/x-icon") if source_url.endswith("favicon.ico") else None
 
-    monkeypatch.setattr("applypilot.company_logos.load_company_logo", fake_load)
+    monkeypatch.setattr("rolesail.company_logos.load_company_logo", fake_load)
 
     assert load_dashboard_company_logo(imported["url"], db) == (b"logo", "image/x-icon")
     stored = db.execute(

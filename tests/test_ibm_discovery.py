@@ -1,6 +1,6 @@
 import json
 
-from applypilot.discovery import greenhouse
+from rolesail.discovery import greenhouse
 
 
 def test_fetch_ibm_jobs_normalizes_deduplicates_and_paginates(monkeypatch):

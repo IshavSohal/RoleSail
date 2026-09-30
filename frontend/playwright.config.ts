@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
-const python = process.env.APPLYPILOT_E2E_PYTHON ?? 'python'
+const python = process.env.ROLESAIL_E2E_PYTHON ?? process.env.APPLYPILOT_E2E_PYTHON ?? 'python'
 
 export default defineConfig({
   testDir: './e2e',
@@ -16,12 +16,12 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: `${python} -m applypilot dashboard --no-open --port 8766`,
+    command: `${python} -m rolesail dashboard --no-open --port 8766`,
     url: 'http://127.0.0.1:8766',
     reuseExistingServer: false,
     timeout: 30_000,
     env: {
-      APPLYPILOT_DIR: '/tmp/applypilot-playwright',
+      ROLESAIL_DIR: '/tmp/rolesail-playwright',
     },
   },
 })

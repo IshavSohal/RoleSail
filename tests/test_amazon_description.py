@@ -1,8 +1,8 @@
 import json
 import sqlite3
 
-from applypilot.discovery import greenhouse
-from applypilot.enrichment.detail import reset_incomplete_amazon_descriptions
+from rolesail.discovery import greenhouse
+from rolesail.enrichment.detail import reset_incomplete_amazon_descriptions
 
 
 def _amazon_payload() -> dict:
