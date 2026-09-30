@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import math
+import mimetypes
 import os
 import re
 import shutil
@@ -26,8 +27,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import yaml
 
 from applypilot import config
+from applypilot.dashboard_data import applied_view, load_dashboard_jobs
 from applypilot.database import get_connection
-from applypilot.view import applied_view, generate_dashboard
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ MAX_RESUME_REQUEST_BYTES = 7_000_000
 MAX_URL_LENGTH = 2048
 MAX_TAILORING_QUEUE_SIZE = 100
 TAILORING_HISTORY_SIZE = 20
+WEB_DIST_DIR = Path(__file__).with_name("web_dist")
 EXTERNAL_EMPLOYER_DOMAINS = {
     "konrad.com": {
         "name": "Konrad",
@@ -1730,11 +1732,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     server: DashboardHTTPServer
 
-    def _send_bytes(self, status: int, body: bytes, content_type: str) -> None:
+    def _send_bytes(
+        self,
+        status: int,
+        body: bytes,
+        content_type: str,
+        cache_control: str = "no-store",
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache_control)
         self.end_headers()
         self.wfile.write(body)
 
@@ -1771,13 +1779,53 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         if not hostname or hostname.lower() not in allowed:
             raise PermissionError("Settings are only available from localhost")
 
+    def _send_web_asset(self, relative_path: str, *, shell: bool = False) -> None:
+        """Serve a file from the packaged Vite build without path traversal."""
+        try:
+            relative = Path(relative_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(relative_path)
+            root = WEB_DIST_DIR.resolve(strict=True)
+            target = (root / relative).resolve(strict=True)
+            target.relative_to(root)
+            if not target.is_file():
+                raise FileNotFoundError(relative_path)
+        except (FileNotFoundError, RuntimeError, ValueError):
+            self._send_json(404, {"error": "Dashboard asset not found"})
+            return
+
+        content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        if content_type.startswith("text/") or content_type in {
+            "application/javascript",
+            "application/json",
+            "image/svg+xml",
+        }:
+            content_type += "; charset=utf-8"
+        cache_control = "no-cache" if shell else "public, max-age=31536000, immutable"
+        self._send_bytes(200, target.read_bytes(), content_type, cache_control)
+
+    def _send_spa_shell(self) -> None:
+        self._send_web_asset("index.html", shell=True)
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            with self.server.render_lock:
-                output = Path(generate_dashboard())
-                body = output.read_bytes()
-            self._send_bytes(200, body, "text/html; charset=utf-8")
+            self._send_spa_shell()
+            return
+
+        if parsed.path.startswith("/assets/"):
+            self._send_web_asset(parsed.path.removeprefix("/"))
+            return
+
+        if parsed.path == "/api/jobs":
+            try:
+                self._validate_local_host()
+                self._send_json(200, {"jobs": load_dashboard_jobs(get_connection())})
+            except PermissionError as exc:
+                self._send_json(403, {"error": str(exc)})
+            except sqlite3.Error as exc:
+                log.exception("Could not load dashboard jobs")
+                self._send_json(500, {"error": f"Could not load jobs: {exc}"})
             return
 
         if parsed.path == "/api/jobs/company-logo":
@@ -1940,6 +1988,12 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(exc)})
             except (FileNotFoundError, OSError) as exc:
                 self._send_json(404, {"error": str(exc)})
+            return
+
+        # BrowserRouter routes are handled by the SPA. API typos must remain
+        # JSON 404s rather than receiving HTML.
+        if not parsed.path.startswith("/api/") and parsed.path in {"/profile"}:
+            self._send_spa_shell()
             return
 
         self._send_json(404, {"error": "Not found"})

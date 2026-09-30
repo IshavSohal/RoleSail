@@ -228,9 +228,15 @@ applypilot apply --continuous           # Run forever, polling for new jobs
 applypilot apply --headless             # Headless browser mode
 applypilot apply --url URL              # Apply to a specific job
 applypilot status                       # Pipeline statistics
-applypilot dashboard                    # Open HTML results dashboard
+applypilot dashboard                    # Open the live React dashboard
 applypilot outreach --url URL           # Inspect/recover post-application outreach
 ```
+
+The dashboard is bundled with ApplyPilot and runs entirely from the local Python server;
+Node.js is not required for normal use. Job and task updates appear without page reloads,
+and workspace filters and the selected job are preserved in the browser URL. Dashboard
+contributors can find the Vite development and release workflow in
+[CONTRIBUTING.md](CONTRIBUTING.md#dashboard-development).
 
 ---
 

@@ -7,6 +7,7 @@ Thank you for your interest in contributing to ApplyPilot. This guide covers eve
 ### Prerequisites
 
 - Python 3.11 or higher
+- Node.js 20.19 or higher (dashboard contributors and release builds only)
 - Git
 
 ### Clone and Install
@@ -19,6 +20,30 @@ playwright install chromium
 ```
 
 This installs ApplyPilot in editable mode with all development dependencies (pytest, ruff, etc.) and downloads the Chromium browser binary for Playwright.
+
+### Dashboard Development
+
+The dashboard is a React + TypeScript application in `frontend/`. Start the
+Python API in one terminal:
+
+```bash
+applypilot dashboard --no-open
+```
+
+Then start Vite in another terminal. Its development server proxies `/api` to
+the Python server on port 8765.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Use `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` to test
+and build the frontend. Production assets are written to
+`src/applypilot/web_dist/` and are committed so installed Python packages do
+not require Node.js. Before a release, run `npm run build:check` and commit any
+changed assets.
 
 ### Verify Installation
 

@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 from applypilot.discovery import startup_jobs
 
@@ -79,27 +80,28 @@ def test_run_startup_jobs_filters_persists_and_prefers_direct_source(monkeypatch
         "accept_unknown_locations": False,
         "startup_jobs": {"enabled": True},
     })
+    recent_posted_at = datetime.now(UTC).isoformat()
     monkeypatch.setattr(startup_jobs, "fetch_startup_jobs", lambda *_args, **_kwargs: [
         {
             "title": "Software Engineer", "company": "New Co", "company_logo": None,
             "location": "Remote, Toronto, Canada", "url": "https://startup.jobs/new-1",
             "application_url": "https://startup.jobs/new-1",
             "content": "A complete startup engineering description. " * 20,
-                "salary": None, "posted_at": "2026-09-09T12:00:00Z",
+                "salary": None, "posted_at": recent_posted_at,
         },
         {
             "title": "Backend Engineer", "company": "Direct Co", "company_logo": None,
             "location": "Toronto, Canada", "url": "https://startup.jobs/duplicate-2",
             "application_url": "https://startup.jobs/duplicate-2",
             "content": "Duplicate role. " * 20, "salary": None,
-                "posted_at": "2026-09-09T12:00:00Z",
+                "posted_at": recent_posted_at,
         },
         {
             "title": "Sales Director", "company": "Other Co", "company_logo": None,
             "location": "Toronto, Canada", "url": "https://startup.jobs/rejected-3",
             "application_url": "https://startup.jobs/rejected-3",
             "content": "Wrong title. " * 20, "salary": None,
-                "posted_at": "2026-09-09T12:00:00Z",
+                "posted_at": recent_posted_at,
         },
     ])
 

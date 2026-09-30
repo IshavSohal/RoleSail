@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -12,10 +13,10 @@ import urllib.request
 import pytest
 import yaml
 
-import applypilot.dashboard_server as dashboard_server
-from applypilot import config
+from applypilot import config, dashboard_server
 from applypilot.apply.prompt import _build_salary_section
 from applypilot.config import location_filter_is_mandatory, location_is_allowed
+from applypilot.dashboard_data import load_dashboard_jobs
 from applypilot.dashboard_server import (
     DashboardHTTPServer,
     DashboardRequestHandler,
@@ -38,7 +39,7 @@ from applypilot.dashboard_server import (
 )
 from applypilot.database import get_connection, init_db
 from applypilot.enrichment.detail import extract_job_metadata, scrape_detail_page
-from applypilot.view import applied_view, format_applied_at, format_posted_at, generate_dashboard
+from applypilot.view import applied_view, format_applied_at, format_posted_at
 
 
 @pytest.fixture
@@ -1278,6 +1279,15 @@ def test_dashboard_api_imports_job(tmp_path, monkeypatch) -> None:
         )
         connection.commit()
 
+        with urllib.request.urlopen(f"{base_url}/api/jobs") as response:
+            dashboard_jobs = json.load(response)
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            assert len(dashboard_jobs["jobs"]) == 1
+            assert dashboard_jobs["jobs"][0]["url"] == result["url"]
+            assert dashboard_jobs["jobs"][0]["score"] == 4
+            assert dashboard_jobs["jobs"][0]["can_tailor"] is True
+
         individual_tailoring_request = urllib.request.Request(
             f"{base_url}/api/tailoring/job",
             data=json.dumps({"url": result["url"], "validation_mode": "normal"}).encode(),
@@ -1804,9 +1814,15 @@ def test_dashboard_settings_api(settings_files) -> None:
         thread.join(timeout=2)
 
 
-def test_dashboard_has_fit_and_applied_tabs(tmp_path, monkeypatch) -> None:
+def test_dashboard_has_fit_and_applied_tabs(tmp_path) -> None:
     connection = init_db(tmp_path / "dashboard.db")
     import_external_job("https://example.com/jobs/active", connection)
+    tailored_resume = tmp_path / "Active_Engineer_Tailored_Resume.tex"
+    tailored_resume.write_text("resume", encoding="utf-8")
+    tailored_resume.with_suffix(".pdf").write_bytes(b"%PDF")
+    tailored_resume.with_name(
+        f"{tailored_resume.stem}_REPORT.json"
+    ).write_text("{}", encoding="utf-8")
     connection.execute(
         "UPDATE jobs SET full_description = ?, company = ?, company_logo = ?, "
         "tailored_resume_path = ?, fit_score = ? WHERE url = ?",
@@ -1814,7 +1830,7 @@ def test_dashboard_has_fit_and_applied_tabs(tmp_path, monkeypatch) -> None:
             "Complete job description",
             "Example Corp",
             "https://cdn.example.com/logo.png",
-            str(tmp_path / "Active_Engineer_Tailored_Resume.tex"),
+            str(tailored_resume),
             8,
             "https://example.com/jobs/active",
         ),
@@ -1835,167 +1851,21 @@ def test_dashboard_has_fit_and_applied_tabs(tmp_path, monkeypatch) -> None:
     )
     connection.commit()
 
-    import applypilot.view as view
-
-    monkeypatch.setattr(view, "get_connection", lambda: connection)
-    output = tmp_path / "dashboard.html"
-    generate_dashboard(str(output))
-    html = output.read_text(encoding="utf-8")
-
-    assert "Active postings (2)" in html
-    assert "1 applied" in html
-    assert 'data-applied="false"' in html
-    assert 'data-applied="true"' in html
-    assert "Mark as applied" in html
-    assert "Unmark as applied" in html
-    assert "delete-job-btn" in html
-    assert 'id="workspace-delete-job"' in html
-    assert "deleteWorkspaceJob" in html
-    assert "/api/jobs/delete" in html
-    assert "Redraft emails" in html
-    assert "redraftWorkspaceOutreach" in html
-    assert "outreachAction('redraft'" in html
-    assert "Prepare outreach emails" in html
-    assert "prepareWorkspaceOutreach" in html
-    assert "fetch('/api/outreach/prepare'" in html
-    assert "All Sources" in html
-    assert 'data-site="example.com"' in html
-    assert "filterSource(this.value)" in html
-    assert "Run Discovery" in html
-    assert 'class="concept-workspace"' in html
-    assert 'id="workspace-resizer"' in html
-    assert "applypilotJobInboxWidth" in html
-    assert "setPointerCapture" in html
-    assert "scrollbar-color: #aeb8c7 #eef1f6" in html
-    assert 'html[data-theme="dark"] *::-webkit-scrollbar-thumb' in html
-    assert "View report" not in html
-    assert "syncWorkspaceTailoringControls" in html
-    assert "border-radius: 999px" in html
-    assert 'class="company-logo"' in html
-    assert ".company-logo[hidden] { display: none; }" in html
-    assert "/api/jobs/company-logo?url=" in html
-    assert 'id="run-pipeline-button"' in html
-    assert "'/api/pipeline'" in html
-    assert 'data-workspace-tab="resume"' in html
-    assert 'data-workspace-tab="report"' in html
-    assert "Complete report" in html
-    assert "function renderCompleteReport(report)" in html
-    assert "Object.entries(report)" in html
-    assert "function renderReportValue(value, depth = 0)" in html
-    assert "View raw JSON" in html
-    assert 'data-workspace-filter="jobs">Jobs (1)' in html
-    assert 'data-workspace-filter="tailored">Tailored (1)' in html
-    assert 'data-workspace-filter="needs_drafts">Needs drafts (1)' in html
-    assert 'data-workspace-filter="drafts_done">Drafts done / legacy (0)' in html
-    assert 'id="workspace-score-filter"' in html
-    assert '<option value="all">Score · All</option>' in html
-    assert '<option value="10">Score · 10</option>' in html
-    assert '<option value="9">Score · 9</option>' in html
-    assert '<option value="8">Score · 8</option>' in html
-    assert '<option value="7">Score · 7</option>' in html
-    assert 'id="company-filter-toggle"' in html
-    assert 'id="company-filter-search"' in html
-    assert 'id="company-filter-select-all"' in html
-    assert 'id="company-filter-clear"' in html
-    assert "const workspaceCompanySelections = {jobs: null, tailored: null, needs_drafts: null, drafts_done: null}" in html
-    assert "companySelection.has(job.company)" in html
-    assert "function renderWorkspaceCompanyFilter()" in html
-    assert "updateWorkspaceFilterCounts()" in html
-    assert "filter === 'needs_drafts' || filter === 'drafts_done'" in html
-    assert "filter === 'tailored' ? job.has_tailored : !job.has_tailored" in html
-    assert "workspaceScore === 'all' || Number(job.score) === Number(workspaceScore)" in html
-    assert "jobMatchesWorkspaceView(job) && jobMatchesWorkspaceScore(job)" in html
-    assert 'id="spend-widget"' in html
-    assert "'/api/usage/summary'" in html
-    assert "'/api/settings/pricing'" in html
-    assert "/api/discovery/status" in html
-    assert "Run Tailoring" in html
-    assert "/api/tailoring/status" in html
-    assert "/api/tailoring/cancel" in html
-    assert "Queued (#" in html
-    assert "applypilotTailoringPending" in html
-    assert "Tailored resume" in html
-    assert "Resume PDF" in html
-    assert "kind=tex" in html
-    assert "kind=report" in html
-    assert "clear-tailored-btn" in html
-    assert "Tailor again" in html
-    assert 'replace_existing: targetJob.has_tailored' in html
-    assert "let tailoringJobUrls = new Set()" in html
-    assert "tailoringJobUrls.has(workspaceJob.url)" in html
-    assert "tailoringJobUrls.add(targetJob.url)" in html
-    assert 'id="workspace-cancel-tailoring"' in html
-    assert "currentTailoringRequest.target_url === workspaceJob.url" in html
-    assert "tailoringInProgress" not in html
-    assert 'data-replace-existing="true"' in html
-    assert "deleteWorkspaceTailoredResume" in html
-    assert "/api/jobs/tailored/clear" in html
-    assert 'class="tailor-job-btn"' in html
-    assert "/api/tailoring/job" in html
-    assert 'data-view="dashboard"' in html
-    assert 'data-view="profile"' in html
-    assert "Profile and Preferences" in html
-    assert "#profile-view { min-height: 100vh; padding: 2rem; background: #f7f8fb;" in html
-    assert "#profile-view .settings-card { background: #fff;" in html
-    assert "#profile-view .field input," in html
-    assert 'id="theme-toggle"' in html
-    assert 'html[data-theme="dark"] #profile-view' in html
-    assert "localStorage.setItem('applypilotTheme'" in html
-    assert "fetch('/api/settings/' + type" in html
-    assert 'data-settings-tab="resume"' in html
-    assert 'id="resume-preview"' in html
-    assert 'accept=".txt,text/plain"' in html
-    assert 'accept=".tex,text/x-tex,application/x-tex"' in html
-    assert 'id="latex-remove-comments"' in html
-    assert "remove_comments: options.extension === '.tex'" in html
-    assert 'id="latex-resume-preview"' in html
-    assert "pdfjs-dist@4.10.38" in html
-    assert "/api/resume/pdf" in html
-    assert "compiled with Tectonic" in html
-    assert "fetchResume('/api/resume?format=tex'" in html
-    assert "fetch('/api/resume'" in html
-    assert "new TextDecoder('utf-8', {fatal: true})" in html
-    assert "switchSettingsTab(currentSettingsTab)" in html
-    assert "latex.js@" not in html
-    assert 'data-profile-number="compensation.salary_expectation"' in html
-    assert 'data-profile-number="experience.years_of_experience_total"' in html
-    assert 'type="number" min="0" step="any"' in html
-    assert '<select data-profile-path="work_authorization.work_permit_type">' in html
-    assert '<select data-profile-path="experience.education_level">' in html
-    assert '<select data-profile-path="eeo_voluntary.gender">' in html
-    tag_paths = (
-        "skills_boundary.programming_languages",
-        "skills_boundary.frameworks",
-        "skills_boundary.tools",
-        "resume_facts.preserved_companies",
-        "resume_facts.preserved_projects",
-        "resume_facts.real_metrics",
-        "allowed_countries",
-        "location_accept",
-        "location_reject_non_remote",
-        "include_titles",
-        "priority_titles",
-        "exclude_titles",
-    )
-    assert html.count('<div class="tag-editor" data-tag-editor') == len(tag_paths)
-    for path in tag_paths:
-        assert f'data-tag-path="{path}"' in html
-    assert 'textarea data-profile-list="skills_boundary.' not in html
-    assert 'textarea data-profile-list="resume_facts.' not in html
-    assert 'textarea data-search-list="priority_titles"' not in html
-    assert 'textarea data-search-list="exclude_titles"' not in html
-    assert 'textarea data-search-list="allowed_countries"' not in html
-    assert 'textarea data-search-list="location_accept"' not in html
-    assert 'textarea data-search-list="location_reject_non_remote"' not in html
-    assert html.count('data-tag-add type="button" aria-label="Add ') == len(tag_paths)
-    assert html.count('data-tag-list aria-live="polite"') == len(tag_paths)
-    assert "remove.setAttribute('aria-label', 'Remove ' + value)" in html
-    assert "const value = input.value.trim();" in html
-    assert "if (!value || values.includes(value)) return;" in html
-    assert "if (event.key !== 'Enter') return;" in html
+    jobs = load_dashboard_jobs(connection)
+    by_url = {job["url"]: job for job in jobs}
+    assert len(jobs) == 3
+    assert by_url["https://example.com/jobs/active"]["has_tailored"] is True
+    assert by_url["https://example.com/jobs/active"]["has_pdf"] is True
+    assert by_url["https://example.com/jobs/active"]["has_tex"] is True
+    assert by_url["https://example.com/jobs/active"]["has_report"] is True
+    assert by_url["https://example.com/jobs/active"]["can_retailor"] is True
+    assert by_url[strong["url"]]["score"] == 9
+    assert by_url[applied["url"]]["applied"] is True
+    assert by_url[applied["url"]]["applied_tab"] == "needs_drafts"
+    assert by_url[applied["url"]]["status"] == "Needs drafts"
 
 
-def test_applied_tabs_use_draft_ids_and_pre_apollo_dates(tmp_path, monkeypatch) -> None:
+def test_applied_tabs_use_draft_ids_and_pre_apollo_dates(tmp_path) -> None:
     connection = init_db(tmp_path / "dashboard.db")
     connection.executemany(
         "INSERT INTO jobs (url, title, company, applied_at) VALUES (?, ?, 'Example', ?)",
@@ -2026,21 +1896,21 @@ def test_applied_tabs_use_draft_ids_and_pre_apollo_dates(tmp_path, monkeypatch) 
     )
     connection.commit()
 
-    import applypilot.view as view
-
-    monkeypatch.setattr(view, "get_connection", lambda: connection)
-    output = tmp_path / "dashboard.html"
-    generate_dashboard(str(output))
-    html = output.read_text(encoding="utf-8")
-    assert 'data-workspace-filter="needs_drafts">Needs drafts (1)' in html
-    assert 'data-workspace-filter="drafts_done">Drafts done / legacy (3)' in html
+    jobs = load_dashboard_jobs(connection)
+    buckets = {job["title"]: job["applied_tab"] for job in jobs}
+    assert buckets == {
+        "Old application": "drafts_done",
+        "Pending drafts": "needs_drafts",
+        "Created drafts": "drafts_done",
+        "Sent outreach": "drafts_done",
+    }
     assert applied_view("2026-09-11T03:26:03+00:00") == "drafts_done"
     assert applied_view("2026-09-11T03:26:05+00:00") == "needs_drafts"
     assert applied_view("2026-09-11T03:26:05+00:00", True) == "drafts_done"
 
 
 def test_dashboard_cards_show_dates_and_sort_newest_within_score(
-    tmp_path, monkeypatch
+    tmp_path,
 ) -> None:
     connection = init_db(tmp_path / "posted-dates.db")
     connection.executemany(
@@ -2072,13 +1942,83 @@ def test_dashboard_cards_show_dates_and_sort_newest_within_score(
     )
     connection.commit()
 
-    import applypilot.view as view
+    jobs = load_dashboard_jobs(connection)
+    assert [job["title"] for job in jobs] == [
+        "Newer same-score job",
+        "Older same-score job",
+        "Legacy job",
+    ]
+    assert jobs[0]["posted_label"] == "Posted Aug 14, 2026"
+    assert jobs[2]["posted_label"] == "Posted Aug 13, 2026"
 
-    monkeypatch.setattr(view, "get_connection", lambda: connection)
-    output = tmp_path / "dashboard.html"
-    generate_dashboard(str(output))
-    html = output.read_text(encoding="utf-8")
 
-    assert html.index("Newer same-score job") < html.index("Older same-score job")
-    assert 'class="inbox-job-posted">Posted Aug 14, 2026</small>' in html
-    assert 'class="inbox-job-posted">Posted Aug 13, 2026</small>' in html
+def test_dashboard_serves_packaged_spa_assets(tmp_path, monkeypatch) -> None:
+    web_dist = tmp_path / "web_dist"
+    assets = web_dist / "assets"
+    assets.mkdir(parents=True)
+    (web_dist / "index.html").write_text(
+        '<div id="root"></div><script src="/assets/app-abc.js"></script>',
+        encoding="utf-8",
+    )
+    (assets / "app-abc.js").write_text("console.log('app')", encoding="utf-8")
+    monkeypatch.setattr(dashboard_server, "WEB_DIST_DIR", web_dist)
+
+    server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base_url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        with urllib.request.urlopen(f"{base_url}/") as response:
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-cache"
+            assert response.headers["Content-Type"].startswith("text/html")
+            assert b'id="root"' in response.read()
+        with urllib.request.urlopen(f"{base_url}/profile") as response:
+            assert response.headers["Cache-Control"] == "no-cache"
+        with urllib.request.urlopen(f"{base_url}/assets/app-abc.js") as response:
+            assert response.headers["Cache-Control"] == (
+                "public, max-age=31536000, immutable"
+            )
+            assert "javascript" in response.headers["Content-Type"]
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            urllib.request.urlopen(f"{base_url}/assets/../index.html")
+        assert exc_info.value.code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_dashboard_jobs_api_returns_empty_and_standardized_errors(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "empty.db"
+    init_db(db_path).close()
+    monkeypatch.setattr(
+        dashboard_server,
+        "get_connection",
+        lambda: get_connection(db_path),
+    )
+
+    server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base_url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        with urllib.request.urlopen(f"{base_url}/api/jobs") as response:
+            assert json.load(response) == {"jobs": []}
+
+        def fail_to_load_jobs(_connection):
+            raise sqlite3.OperationalError("simulated database failure")
+
+        monkeypatch.setattr(dashboard_server, "load_dashboard_jobs", fail_to_load_jobs)
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            urllib.request.urlopen(f"{base_url}/api/jobs")
+        assert exc_info.value.code == 500
+        assert json.load(exc_info.value) == {
+            "error": "Could not load jobs: simulated database failure"
+        }
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

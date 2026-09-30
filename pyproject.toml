@@ -48,7 +48,11 @@ build-backend = "hatchling.build"
 packages = ["src/applypilot"]
 
 [tool.hatch.build]
-artifacts = ["src/applypilot/config/*.yaml", "src/applypilot/templates/*.tex"]
+artifacts = [
+    "src/applypilot/config/*.yaml",
+    "src/applypilot/templates/*.tex",
+    "src/applypilot/web_dist/**/*",
+]
 
 [tool.ruff]
 target-version = "py311"

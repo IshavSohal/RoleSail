@@ -506,6 +506,7 @@ def _fetch_meta_jobs(company: dict, terms: list[str]) -> list[dict]:
                 "location": "; ".join(str(loc) for loc in locations),
                 "url": f"https://www.metacareers.com/jobs/{job_id}",
                 "content": "",
+                "content_is_full": False,
             }
     return list(jobs.values())
 

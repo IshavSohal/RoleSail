@@ -8,12 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- React + TypeScript dashboard with live task updates, URL-persisted workspace filters,
+  responsive layouts, accessible interactions, and locally bundled PDF previews.
+- `GET /api/jobs` read model for dashboard jobs, artifact availability, tailoring eligibility,
+  application buckets, and outreach summaries.
 - Optional, review-gated Apollo employee outreach after confirmed applications, including
   official-site research, verified work-email enrichment, personalized drafts, suppression,
   retries, delivery tracking, and connected-mailbox validation.
 - Microsoft discovery through its public Eightfold/PCSX careers endpoint.
 - Ashby and Lever public job-board discovery, including full descriptions, application URLs,
   posting dates, locations, and available compensation.
+
+### Changed
+- The Python dashboard server now serves fingerprinted, cacheable SPA assets while retaining
+  the existing CLI, local-only protections, database, and mutation APIs.
 
 ## [0.2.0] - 2026-02-17
 

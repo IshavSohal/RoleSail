@@ -30,6 +30,12 @@ __pycache__/
 dist/
 build/
 *.egg
+.pytest_cache/
+.ruff_cache/
+frontend/node_modules/
+frontend/*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
 
 # IDE
 .vscode/

@@ -233,6 +233,7 @@ def collect_detail_intelligence(page) -> dict:
     intel: dict = {
         "json_ld": [],
         "apple_hydration": None,
+        "meta_sections": None,
         "microsoft_details": None,
         "page_title": "",
         "page_icon": None,
@@ -264,6 +265,56 @@ def collect_detail_intelligence(page) -> dict:
         try:
             intel["apple_hydration"] = page.evaluate(
                 "() => window.__staticRouterHydrationData || null"
+            )
+        except Exception:
+            pass
+
+    if "metacareers.com" in intel["final_url"]:
+        try:
+            # Meta's JobPosting JSON-LD stores only the introductory paragraph
+            # in `description`. The rest of the posting is rendered as sibling
+            # sections (responsibilities, qualifications, compensation, etc.).
+            # Select the direct children spanning the first responsibilities
+            # heading through EEO so navigation and the apply-card are omitted.
+            intel["meta_sections"] = page.evaluate(
+                """() => {
+                    const headings = [...document.querySelectorAll("h2")];
+                    const responsibilities = headings.find((heading) =>
+                        heading.textContent.trim().endsWith("Responsibilities")
+                    );
+                    const eeo = headings.find((heading) =>
+                        heading.textContent.trim() === "Equal Employment Opportunity"
+                    );
+                    if (!responsibilities || !eeo) return null;
+
+                    const ancestors = (element) => {
+                        const result = [];
+                        while (element) {
+                            result.push(element);
+                            element = element.parentElement;
+                        }
+                        return result;
+                    };
+                    const eeoAncestors = new Set(ancestors(eeo));
+                    const container = ancestors(responsibilities).find((element) =>
+                        eeoAncestors.has(element)
+                    );
+                    if (!container) return null;
+
+                    const directChild = (element) => {
+                        while (element && element.parentElement !== container) {
+                            element = element.parentElement;
+                        }
+                        return element;
+                    };
+                    const children = [...container.children];
+                    const start = children.indexOf(directChild(responsibilities));
+                    const end = children.indexOf(directChild(eeo));
+                    if (start < 0 || end < start) return null;
+                    return children.slice(start, end + 1)
+                        .map((element) => element.innerText.trim())
+                        .filter(Boolean);
+                }"""
             )
         except Exception:
             pass
@@ -384,6 +435,64 @@ def extract_from_microsoft_details(intel: dict) -> dict | None:
         "location": location or None,
         "posted_at": posted_at,
     }
+
+
+def extract_from_meta_details(intel: dict) -> dict | None:
+    """Assemble Meta's intro and every rendered job-description section."""
+    final_url = intel.get("final_url") or ""
+    if "metacareers.com" not in final_url:
+        return None
+
+    posting = next(
+        (
+            candidate
+            for item in intel.get("json_ld", [])
+            if (candidate := _find_job_posting(item))
+        ),
+        None,
+    )
+    if not posting:
+        return None
+
+    sections: list[str] = []
+    description = clean_description(posting.get("description", ""))
+    if description:
+        sections.append(description)
+
+    rendered_sections = intel.get("meta_sections")
+    if isinstance(rendered_sections, list):
+        sections.extend(
+            cleaned
+            for value in rendered_sections
+            if isinstance(value, str) and (cleaned := clean_description(value))
+        )
+    else:
+        # Keep a structured-data fallback if Meta changes its DOM. The live
+        # page currently exposes richer, separately headed sections.
+        for heading, field in (
+            ("Responsibilities", "responsibilities"),
+            ("Qualifications", "qualifications"),
+        ):
+            value = posting.get(field)
+            cleaned = (
+                clean_description(value.replace("&nbsp;", "\n"))
+                if isinstance(value, str)
+                else ""
+            )
+            if cleaned:
+                sections.append(f"{heading}\n{cleaned}")
+
+    full_description = "\n\n".join(dict.fromkeys(sections))
+    if len(full_description) < 50:
+        return None
+
+    result = {
+        "full_description": full_description,
+        # Meta starts its authenticated application flow from the job page.
+        "application_url": final_url,
+    }
+    result.update(extract_job_metadata(intel))
+    return result
 
 
 # -- Tier 1: JSON-LD extraction -----------------------------------------------
@@ -826,6 +935,19 @@ def reset_incomplete_microsoft_descriptions(conn: sqlite3.Connection) -> int:
     return cursor.rowcount
 
 
+def reset_incomplete_meta_descriptions(conn: sqlite3.Connection) -> int:
+    """Requeue Meta rows captured from the introductory JSON-LD field only."""
+    cursor = conn.execute(
+        "UPDATE jobs SET full_description = NULL, detail_scraped_at = NULL "
+        "WHERE (site = 'Meta' OR strategy = 'meta_careers') "
+        "AND full_description IS NOT NULL "
+        "AND (full_description NOT LIKE '%Responsibilities%' "
+        "OR full_description NOT LIKE '%Minimum Qualifications%')"
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
 # -- Orchestration -----------------------------------------------------------
 
 SITE_DELAYS = {
@@ -883,6 +1005,16 @@ def scrape_detail_page(page, url: str) -> dict:
 
     intel = collect_detail_intelligence(page)
     result.update(extract_job_metadata(intel))
+
+    # Meta's JSON-LD `description` is only the intro. Prefer the complete set
+    # of rendered sections collected from the job detail container.
+    meta_result = extract_from_meta_details(intel)
+    if meta_result and meta_result.get("full_description"):
+        result.update(meta_result)
+        result["tier_used"] = 1
+        result["status"] = "ok"
+        result["elapsed"] = time.time() - t0
+        return result
 
     # Microsoft's JSON-LD omits the Overview. Prefer the complete PCS/X API
     # payload used to render the page.
@@ -1209,6 +1341,9 @@ def stream_detail(
     microsoft_reset_count = reset_incomplete_microsoft_descriptions(conn)
     if microsoft_reset_count:
         log.info("Microsoft: requeued %d incomplete descriptions", microsoft_reset_count)
+    meta_reset_count = reset_incomplete_meta_descriptions(conn)
+    if meta_reset_count:
+        log.info("Meta: requeued %d incomplete descriptions", meta_reset_count)
 
     url_stats = resolve_all_urls(conn)
     log.info("URL resolution: %d resolved, %d absolute",
@@ -1291,6 +1426,9 @@ def run_enrichment(limit: int = 100, workers: int = 3) -> dict:
     microsoft_reset_count = reset_incomplete_microsoft_descriptions(conn)
     if microsoft_reset_count:
         log.info("Microsoft: requeued %d incomplete descriptions", microsoft_reset_count)
+    meta_reset_count = reset_incomplete_meta_descriptions(conn)
+    if meta_reset_count:
+        log.info("Meta: requeued %d incomplete descriptions", meta_reset_count)
 
     # URL resolution first
     url_stats = resolve_all_urls(conn)
