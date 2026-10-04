@@ -209,6 +209,7 @@ def init_db(db_path: Path | str | None = None) -> sqlite3.Connection:
             body_text TEXT,
             source_facts_json TEXT,
             status TEXT NOT NULL DEFAULT 'ready',
+            status_before_suppression TEXT,
             error TEXT,
             sent_at TEXT,
             scheduled_for TEXT,
@@ -317,6 +318,7 @@ _OUTREACH_RECIPIENT_COLUMNS: dict[str, str] = {
     "last_attempt_at": "TEXT",
     "gmail_draft_id": "TEXT",
     "gmail_account_email": "TEXT",
+    "status_before_suppression": "TEXT",
 }
 
 

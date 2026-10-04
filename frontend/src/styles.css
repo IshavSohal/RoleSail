@@ -83,6 +83,8 @@ code { font-size: .86em; background: var(--surface-subtle); border: 1px solid va
 .button.subtle { min-height: 1.9rem; padding: .3rem .55rem; }
 .button.compact { min-height: 1.9rem; padding: .3rem .55rem; font-size: .75rem; }
 .button:disabled, .icon-button:disabled { opacity: .55; cursor: not-allowed; }
+.button-spinner { width: .85rem; height: .85rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: button-spin .7s linear infinite; }
+@keyframes button-spin { to { transform: rotate(360deg); } }
 .icon-button { width: 2.25rem; padding: 0; font-size: 1.25rem; }
 .text-button { border: 0; padding: .2rem; background: none; color: var(--primary); cursor: pointer; }
 .button-row { display: flex; align-items: center; gap: .55rem; }
@@ -184,6 +186,16 @@ input:disabled, textarea:disabled, select:disabled { opacity: .65; background: v
 .recipient-head input { width: auto; min-height: 0; margin-top: .2rem; }
 .recipient-head div { display: grid; gap: .15rem; }
 .recipient-head small { color: var(--muted); }
+.action-menu { position: relative; }
+.action-menu > summary { list-style: none; }
+.action-menu > summary::-webkit-details-marker { display: none; }
+.action-menu > summary[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.action-menu-popover { position: absolute; z-index: 30; top: calc(100% + .35rem); left: 0; display: grid; width: min(280px, calc(100vw - 2rem)); padding: .35rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: .55rem; box-shadow: var(--shadow); }
+.action-menu.open-above .action-menu-popover { top: auto; bottom: calc(100% + .35rem); }
+.action-menu-popover button { display: grid; gap: .15rem; width: 100%; padding: .65rem .7rem; color: var(--text); background: transparent; border: 0; border-radius: .4rem; text-align: left; cursor: pointer; }
+.action-menu-popover button:hover:not(:disabled) { color: var(--primary); background: var(--primary-soft); }
+.action-menu-popover button:disabled { opacity: .55; cursor: not-allowed; }
+.action-menu-popover small { color: var(--muted); font-weight: 400; }
 
 .dialog-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgb(4 10 20 / .65); }
 .dialog { width: min(540px, 100%); max-height: calc(100vh - 2rem); overflow: auto; padding: 1rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: .8rem; box-shadow: 0 24px 70px rgb(0 0 0 / .3); }

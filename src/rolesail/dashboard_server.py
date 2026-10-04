@@ -2021,6 +2021,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             "/api/outreach/cancel-pending",
             "/api/outreach/clear",
             "/api/outreach/suppress",
+            "/api/outreach/restore-suppressed",
         }:
             self._send_json(404, {"error": "Not found"})
             return
@@ -2076,6 +2077,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     preview_batch_schedule,
                     redraft_batch,
                     reset_uncertain_gmail_draft,
+                    restore_suppressed_recipient,
                     retry_batch,
                     suppress_recipient,
                 )
@@ -2121,7 +2123,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                         confirmed_no_draft=payload.get("confirmed_no_draft") is True,
                     )
                 elif path == "/api/outreach/redraft":
-                    result = redraft_batch(payload.get("batch_id", ""))
+                    result = redraft_batch(
+                        payload.get("batch_id", ""), feedback=payload.get("feedback", "")
+                    )
                 elif path == "/api/outreach/retry":
                     result = retry_batch(payload.get("batch_id", ""))
                 elif path == "/api/outreach/cancel":
@@ -2130,10 +2134,12 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     result = cancel_pending(payload.get("batch_id", ""))
                 elif path == "/api/outreach/clear":
                     result = clear_cancelled_batch(payload.get("batch_id", ""))
-                else:
+                elif path == "/api/outreach/suppress":
                     result = suppress_recipient(
                         payload.get("recipient_id", ""), payload.get("reason", "user")
                     )
+                else:
+                    result = restore_suppressed_recipient(payload.get("recipient_id", ""))
                 if path in {
                     "/api/outreach/approve",
                     "/api/outreach/retry",

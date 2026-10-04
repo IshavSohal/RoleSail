@@ -37,6 +37,7 @@ companies:
   coinbase:   { name: "Coinbase",   board_token: "coinbase" }
   robinhood:  { name: "Robinhood",  board_token: "robinhood" }
   brex:       { name: "Brex",       board_token: "brex" }
+  squarepoint: { name: "Squarepoint Capital", board_token: "squarepointcapital" }
 
   # -- AI / Frontier Labs --------------------------------------------------
   anthropic:  { name: "Anthropic",  board_token: "anthropic" }

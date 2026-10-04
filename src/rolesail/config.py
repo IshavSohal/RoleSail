@@ -129,18 +129,96 @@ def migrate_legacy_app_dir(
         else app_dir / "applypilot.db"
     )
     new_db = app_dir / "rolesail.db"
-    if legacy_db.is_file() and not new_db.exists():
+    replace_empty_db = new_db.is_file() and not _database_has_user_data(new_db)
+    if legacy_db.is_file() and (not new_db.exists() or replace_empty_db):
         new_db.parent.mkdir(parents=True, exist_ok=True)
+        migration_db = new_db.with_name(".rolesail.db.migrating")
+        migration_db.unlink(missing_ok=True)
         try:
-            with sqlite3.connect(legacy_db) as source, sqlite3.connect(new_db) as destination:
+            with sqlite3.connect(legacy_db) as source, sqlite3.connect(migration_db) as destination:
                 source.backup(destination)
         except sqlite3.DatabaseError:
-            # Preserve even an unreadable legacy file so recovery remains possible.
-            new_db.unlink(missing_ok=True)
-            shutil.copy2(legacy_db, new_db)
+            migration_db.unlink(missing_ok=True)
+            if not new_db.exists():
+                # Preserve even an unreadable legacy file so recovery remains possible.
+                shutil.copy2(legacy_db, new_db)
+        else:
+            if replace_empty_db:
+                empty_backup = new_db.with_name("rolesail.db.empty-before-legacy-migration")
+                if not empty_backup.exists():
+                    shutil.copy2(new_db, empty_backup)
+            migration_db.replace(new_db)
+        migrated = True
+
+    if _migrate_database_paths(new_db, legacy_app_dir, app_dir):
         migrated = True
 
     return migrated
+
+
+def _database_has_user_data(path: Path) -> bool:
+    """Return True when a database contains any non-SQLite table rows.
+
+    Unreadable databases are treated as populated so migration never replaces
+    a file whose contents cannot be inspected safely.
+    """
+    try:
+        uri = f"{path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True) as connection:
+            tables = connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+            for (table,) in tables:
+                quoted_table = str(table).replace('"', '""')
+                if connection.execute(
+                    f'SELECT 1 FROM "{quoted_table}" LIMIT 1'
+                ).fetchone():
+                    return True
+        return False
+    except sqlite3.DatabaseError:
+        return True
+
+
+def _migrate_database_paths(
+    database_path: Path,
+    legacy_app_dir: Path,
+    app_dir: Path,
+) -> int:
+    """Point legacy artifact paths at copied files in the RoleSail directory."""
+    if not database_path.is_file() or app_dir == legacy_app_dir:
+        return 0
+
+    legacy_root = legacy_app_dir.resolve()
+    updated = 0
+    try:
+        with sqlite3.connect(database_path) as connection:
+            rows = connection.execute(
+                "SELECT rowid, tailored_resume_path, cover_letter_path FROM jobs"
+            ).fetchall()
+            for row_id, tailored_path, cover_path in rows:
+                for column, raw_path in (
+                    ("tailored_resume_path", tailored_path),
+                    ("cover_letter_path", cover_path),
+                ):
+                    if not raw_path:
+                        continue
+                    try:
+                        relative_path = Path(raw_path).resolve().relative_to(legacy_root)
+                    except (OSError, ValueError):
+                        continue
+                    destination = app_dir / relative_path
+                    if not destination.is_file():
+                        continue
+                    connection.execute(
+                        f"UPDATE jobs SET {column} = ? WHERE rowid = ?",
+                        (str(destination), row_id),
+                    )
+                    updated += 1
+            connection.commit()
+    except sqlite3.DatabaseError:
+        return 0
+    return updated
 
 
 def ensure_dirs() -> bool:

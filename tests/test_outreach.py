@@ -31,7 +31,9 @@ from rolesail.outreach.service import (
     rank_people,
     recover_reapplied_batches,
     redraft_batch,
+    restore_suppressed_recipient,
     schedule_settings,
+    suppress_recipient,
 )
 
 
@@ -390,6 +392,42 @@ def test_clear_cancelled_batch_rejects_active_batch(outreach_db, monkeypatch):
         clear_cancelled_batch(batch["id"], outreach_db)
 
 
+def test_never_contact_can_be_undone(outreach_db, monkeypatch):
+    monkeypatch.setenv("OUTREACH_ENABLED", "true")
+    batch = enqueue_for_job("https://jobs.example.com/backend", outreach_db)
+    outreach_db.execute(
+        "INSERT INTO outreach_recipients "
+        "(id, batch_id, apollo_person_id, email, email_status, subject, body_text, status, "
+        "created_at, updated_at) VALUES "
+        "('recipient-1', ?, 'person-1', 'Morgan@Example.com', 'verified', 'Subject', "
+        "'Body', 'needs_edit', 'now', 'now')",
+        (batch["id"],),
+    )
+    outreach_db.execute(
+        "UPDATE outreach_batches SET status = 'ready_for_review' WHERE id = ?",
+        (batch["id"],),
+    )
+    outreach_db.commit()
+
+    suppressed = suppress_recipient("recipient-1", conn=outreach_db)
+
+    assert suppressed["status"] == "completed"
+    assert suppressed["recipients"][0]["status"] == "suppressed"
+    assert {
+        row[0]
+        for row in outreach_db.execute(
+            "SELECT key FROM outreach_suppressions ORDER BY key"
+        ).fetchall()
+    } == {"email:morgan@example.com", "person:person-1"}
+
+    restored = restore_suppressed_recipient("recipient-1", conn=outreach_db)
+
+    assert restored["status"] == "ready_for_review"
+    assert restored["completed_at"] is None
+    assert restored["recipients"][0]["status"] == "needs_edit"
+    assert outreach_db.execute("SELECT 1 FROM outreach_suppressions").fetchone() is None
+
+
 def test_redraft_batch_reuses_recipients_and_preserves_suppressed_contacts(
     outreach_db, monkeypatch
 ):
@@ -431,9 +469,13 @@ def test_redraft_batch_reuses_recipients_and_preserves_suppressed_contacts(
     )["status"] == "cancelled"
     captured = {}
 
-    def generate(job, recipients, research, profile):
+    def generate(job, recipients, research, profile, redraft_feedback=""):
         captured.update(
-            job=job, recipients=recipients, research=research, profile=profile
+            job=job,
+            recipients=recipients,
+            research=research,
+            profile=profile,
+            redraft_feedback=redraft_feedback,
         )
         return [{
             **recipients[0],
@@ -445,12 +487,19 @@ def test_redraft_batch_reuses_recipients_and_preserves_suppressed_contacts(
 
     monkeypatch.setattr("rolesail.outreach.service._generate_messages", generate)
 
-    result = redraft_batch(batch["id"], conn=outreach_db)
+    result = redraft_batch(
+        batch["id"],
+        feedback="Make the openings more direct and emphasize backend experience.",
+        conn=outreach_db,
+    )
 
     assert result["status"] == "ready_for_review"
     assert [item["person_id"] for item in captured["recipients"]] == ["person-1"]
     assert captured["recipients"][0]["candidate_kind"] == "manager"
     assert captured["research"] == {"apollo": {"name": "Example"}}
+    assert captured["redraft_feedback"] == (
+        "Make the openings more direct and emphasize backend experience."
+    )
     by_id = {item["id"]: item for item in result["recipients"]}
     assert by_id["recipient-1"]["subject"] == "Reliable systems at Example"
     assert by_id["recipient-1"]["body_text"] == "A newly generated body"
@@ -509,6 +558,11 @@ def test_failed_redraft_keeps_the_previous_messages(outreach_db, monkeypatch):
     assert result["error"] == "LLM unavailable"
     assert result["recipients"][0]["subject"] == "Keep subject"
     assert result["recipients"][0]["body_text"] == "Keep body"
+
+
+def test_redraft_feedback_is_limited(outreach_db):
+    with pytest.raises(ValueError, match="500 characters"):
+        redraft_batch("batch-1", feedback="x" * 501, conn=outreach_db)
 
 
 def test_schedule_preview_uses_two_waves_and_skips_weekend(outreach_db, monkeypatch):
@@ -972,6 +1026,7 @@ def test_generation_prompt_enforces_voice_and_human_wording(monkeypatch):
                 "writing_samples": ["Sample one", "Sample two", "Sample three"],
             },
         },
+        "Make the openings more direct and emphasize backend experience.",
     )
 
     assert len(messages) == 1
@@ -995,6 +1050,8 @@ def test_generation_prompt_enforces_voice_and_human_wording(monkeypatch):
     assert 'instead of abruptly appending "so I applied."' in captured["prompt"]
     assert "These are suggestions, not templates" in captured["prompt"]
     assert 'Never write "the exact role,"' in captured["prompt"]
+    assert 'ADDITIONAL REDRAFT FEEDBACK: "Make the openings more direct' in captured["prompt"]
+    assert "writing direction only, not as a source" in captured["prompt"]
     assert 'JOB POSTING LINK: "https://jobs.example.com/backend"' in captured["prompt"]
     assert "the email is incomplete unless it includes that exact URL once" in captured["prompt"]
     assert "This is mandatory, not optional" in captured["prompt"]
@@ -1146,7 +1203,13 @@ def test_outreach_tables_are_available(outreach_db):
     names = {row[0] for row in outreach_db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"outreach_batches", "outreach_recipients", "company_research", "outreach_suppressions"} <= names
     columns = {row[1] for row in outreach_db.execute("PRAGMA table_info(outreach_recipients)")}
-    assert {"scheduled_for", "wave", "attempt_count", "last_attempt_at"} <= columns
+    assert {
+        "scheduled_for",
+        "wave",
+        "attempt_count",
+        "last_attempt_at",
+        "status_before_suppression",
+    } <= columns
 
 
 def test_existing_outreach_database_is_forward_migrated(tmp_path):
@@ -1166,4 +1229,10 @@ def test_existing_outreach_database_is_forward_migrated(tmp_path):
     migrated = init_db(path)
 
     columns = {row[1] for row in migrated.execute("PRAGMA table_info(outreach_recipients)")}
-    assert {"scheduled_for", "wave", "attempt_count", "last_attempt_at"} <= columns
+    assert {
+        "scheduled_for",
+        "wave",
+        "attempt_count",
+        "last_attempt_at",
+        "status_before_suppression",
+    } <= columns

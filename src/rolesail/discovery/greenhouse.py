@@ -86,6 +86,49 @@ def _location_ok(
     return config.location_is_allowed(location, policy)
 
 
+def _greenhouse_location(
+    job: dict,
+    accept: list[str],
+    reject: list[str],
+    search_cfg: dict,
+    enforce_filter: bool,
+) -> tuple[bool, str | None]:
+    """Resolve a Greenhouse display location against its structured offices.
+
+    Some boards use a broad label such as ``London, Montreal, Singapore`` even
+    though Greenhouse also supplies country-qualified office locations. When
+    filtering is enabled, retain only the eligible offices so a valid Canadian
+    or US option is not rejected because the same role is offered elsewhere.
+    """
+    loc_obj = job.get("location") or {}
+    display_location = loc_obj.get("name") if isinstance(loc_obj, dict) else None
+    if not enforce_filter or _location_ok(
+        display_location, accept, reject, search_cfg
+    ):
+        return True, display_location
+
+    eligible_offices: list[str] = []
+    for office in job.get("offices") or []:
+        if not isinstance(office, dict):
+            continue
+        office_location = office.get("location")
+        office_city = str(office_location or "").split(",", 1)[0].strip().casefold()
+        if (
+            office_location
+            and (
+                not display_location
+                or office_city in display_location.casefold()
+            )
+            and office_location not in eligible_offices
+            and _location_ok(office_location, accept, reject, search_cfg)
+        ):
+            eligible_offices.append(office_location)
+
+    if eligible_offices:
+        return True, "; ".join(eligible_offices)
+    return False, display_location
+
+
 def _load_query_terms(search_cfg: dict | None = None) -> list[str]:
     """Pull each `query` from `searches.yaml` and lowercase for substring matching.
 
@@ -939,14 +982,19 @@ def _process_company(
 
     for job in raw_jobs:
         title = job.get("title") or ""
-        loc_obj = job.get("location") or {}
-        location = loc_obj.get("name") if isinstance(loc_obj, dict) else None
 
         if not classify_title(title, search_cfg).accepted:
             result["title_rejected"] += 1
             continue
         enforce_location = location_filter or config.location_filter_is_mandatory(search_cfg)
-        if enforce_location and not _location_ok(location, accept_locs, reject_locs, search_cfg):
+        location_accepted, location = _greenhouse_location(
+            job,
+            accept_locs,
+            reject_locs,
+            search_cfg,
+            enforce_location,
+        )
+        if not location_accepted:
             result["location_rejected"] += 1
             continue
 
