@@ -1,7 +1,7 @@
 import json
 import sqlite3
 
-from rolesail.discovery import greenhouse
+from rolesail.discovery import bigtech, greenhouse
 from rolesail.enrichment.detail import reset_incomplete_amazon_descriptions
 
 
@@ -37,12 +37,12 @@ def _amazon_payload() -> dict:
 
 def test_amazon_fetch_assembles_qualifications_and_salary(monkeypatch):
     monkeypatch.setattr(
-        greenhouse,
+        bigtech,
         "_http_request",
         lambda *_args, **_kwargs: json.dumps(_amazon_payload()).encode(),
     )
 
-    jobs = greenhouse._fetch_amazon_jobs(
+    jobs = bigtech._fetch_amazon_jobs(
         {"page_size": 100, "max_pages": 1}, ["software engineer"]
     )
 
@@ -77,9 +77,9 @@ def test_fetch_amazon_job_requires_an_exact_job_id(monkeypatch):
         requested_urls.append(url)
         return json.dumps(payload).encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    job = greenhouse.fetch_amazon_job("1234567")
+    job = bigtech.fetch_amazon_job("1234567")
 
     assert job is not None
     assert job["id"] == "1234567"

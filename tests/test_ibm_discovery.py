@@ -1,6 +1,6 @@
 import json
 
-from rolesail.discovery import greenhouse
+from rolesail.discovery import bigtech, greenhouse
 
 
 def test_fetch_ibm_jobs_normalizes_deduplicates_and_paginates(monkeypatch):
@@ -46,9 +46,9 @@ def test_fetch_ibm_jobs_normalizes_deduplicates_and_paginates(monkeypatch):
             {"hits": {"total": {"value": 3, "relation": "eq"}, "hits": hits}}
         ).encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    jobs = greenhouse._fetch_ibm_jobs(
+    jobs = bigtech._fetch_ibm_jobs(
         {"max_pages": 5, "page_size": 2}, ["software engineer"]
     )
 

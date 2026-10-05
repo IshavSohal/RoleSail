@@ -2,7 +2,7 @@ import json
 import sqlite3
 import urllib.parse
 
-from rolesail.discovery import greenhouse
+from rolesail.discovery import bigtech, greenhouse
 from rolesail.enrichment.detail import (
     extract_from_microsoft_details,
     reset_incomplete_microsoft_descriptions,
@@ -56,14 +56,14 @@ def test_fetch_microsoft_jobs_normalizes_and_paginates(monkeypatch):
             ]
         return json.dumps({"data": {"count": 11, "positions": positions}}).encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    jobs = greenhouse._fetch_microsoft_jobs({"max_pages": 5}, ["software engineer"])
+    jobs = bigtech._fetch_microsoft_jobs({"max_pages": 5}, ["software engineer"])
 
     assert len(calls) == 2
     assert len(jobs) == 2
 
-    greenhouse._fetch_microsoft_job_details(jobs[0])
+    bigtech._fetch_microsoft_job_details(jobs[0])
     assert len(calls) == 3
     assert jobs[0] == {
         "title": "Software Engineer",

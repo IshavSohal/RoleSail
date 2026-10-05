@@ -1,6 +1,6 @@
 import urllib.parse
 
-from rolesail.discovery import greenhouse
+from rolesail.discovery import bigtech, greenhouse
 
 
 def test_fetch_successfactors_jobs_normalizes_and_paginates(monkeypatch):
@@ -30,9 +30,9 @@ def test_fetch_successfactors_jobs_normalizes_and_paginates(monkeypatch):
         )
         return markup.encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    jobs = greenhouse._fetch_successfactors_jobs(
+    jobs = bigtech._fetch_successfactors_jobs(
         {
             "base_url": "https://jobs.example.com",
             "category_path": "/go/technology/",

@@ -177,21 +177,27 @@ ruff format src/
 
 ```
 RoleSail/
-├── src/rolesail/       # Main package
-│   ├── __init__.py
-│   ├── cli.py            # CLI entry points
-│   ├── discover/         # Stage 1: job discovery scrapers
-│   ├── enrich/           # Stage 2: description extraction
-│   ├── score/            # Stage 3: AI scoring
-│   ├── tailor/           # Stage 4: resume tailoring
-│   ├── cover/            # Stage 5: cover letter generation
-│   ├── apply/            # Stage 6: browser automation
-│   └── utils/            # Shared utilities
-├── config/               # Default configuration files
-├── tests/                # Test suite
-├── docs/                 # Documentation
-└── pyproject.toml        # Package configuration
+├── src/rolesail/
+│   ├── cli.py              # Typer command boundary
+│   ├── pipeline.py         # Pipeline stage coordination
+│   ├── database.py         # SQLite schema and shared persistence
+│   ├── dashboard/          # Dashboard HTTP, settings, jobs, and task services
+│   ├── discovery/          # Job-source adapters and filtering
+│   ├── enrichment/         # URL resolution, extraction, and detail scraping
+│   ├── scoring/            # Scoring, tailoring, validation, and document output
+│   ├── apply/              # Browser/Claude application execution
+│   ├── outreach/           # Outreach composition, persistence, and delivery
+│   ├── config/             # Package-shipped employer and source registries
+│   └── web_dist/           # Generated, committed dashboard bundle
+├── frontend/src/           # React dashboard source
+├── tests/                  # Python behavior and integration tests
+└── pyproject.toml          # Python package and Ruff configuration
 ```
+
+The historical `rolesail.dashboard_server`, `rolesail.outreach.service`, and
+`rolesail.enrichment.detail` modules remain compatibility entrypoints. Put new
+logic in the focused modules behind them. Edit dashboard source in `frontend/`
+and run `npm run build`; do not edit `src/rolesail/web_dist/` directly.
 
 ## License
 

@@ -16,6 +16,10 @@ import yaml
 from rolesail import config, dashboard_server
 from rolesail.apply.prompt import _build_salary_section
 from rolesail.config import location_filter_is_mandatory, location_is_allowed
+from rolesail.dashboard import jobs as dashboard_job_services
+from rolesail.dashboard import http as dashboard_http
+from rolesail.dashboard import settings as dashboard_settings
+from rolesail.dashboard import tasks as dashboard_tasks
 from rolesail.dashboard_data import load_dashboard_jobs
 from rolesail.dashboard_server import (
     DashboardHTTPServer,
@@ -264,7 +268,7 @@ def test_enrich_external_job_automatically_scores_import(monkeypatch, tmp_path) 
         )
         conn.commit()
 
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_job_services, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 2)
     monkeypatch.setattr(config, "location_is_allowed", lambda _location: True)
     monkeypatch.setattr("rolesail.enrichment.detail.scrape_site_batch", fake_scrape)
@@ -292,7 +296,7 @@ def test_enrich_external_job_scores_when_location_is_unknown(monkeypatch, tmp_pa
     connection.close()
     calls = []
 
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_job_services, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 2)
     monkeypatch.setattr(
         config,
@@ -325,7 +329,7 @@ def test_enrich_external_amazon_job_uses_exact_api_record(monkeypatch, tmp_path)
     imported = import_external_job(url, connection)
     connection.close()
 
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_job_services, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 1)
     monkeypatch.setattr(
         "rolesail.discovery.greenhouse.fetch_amazon_job",
@@ -381,7 +385,7 @@ def test_enrich_external_salesforce_job_uses_workday_api(monkeypatch, tmp_path) 
     imported = import_external_job(url, connection)
     connection.close()
 
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_job_services, "get_connection", lambda: get_connection(db_path))
     monkeypatch.setattr(config, "get_tier", lambda: 1)
     monkeypatch.setattr(
         "rolesail.discovery.workday.workday_search",
@@ -656,340 +660,6 @@ def test_clear_tailored_resume_rejects_path_outside_tailored_dir(
     assert row["tailor_attempts"] == 2
 
 
-@pytest.fixture
-def settings_files(tmp_path, monkeypatch):
-    profile_path = tmp_path / "profile.json"
-    search_path = tmp_path / "searches.yaml"
-    resume_path = tmp_path / "resume.txt"
-    resume_tex_path = tmp_path / "resume.tex"
-    resume_pdf_path = tmp_path / "resume.pdf"
-    profile_path.write_text(
-        json.dumps(
-            {
-                "personal": {
-                    "full_name": "Example User",
-                    "email": "user@example.com",
-                    "password": "stored-secret",
-                },
-                "experience": {"target_role": "Software Engineer"},
-                "skills_boundary": {
-                    "programming_languages": ["Python", "Custom Language"],
-                    "frameworks": ["FastAPI"],
-                    "tools": ["Custom Platform"],
-                },
-                "resume_facts": {
-                    "preserved_companies": ["Example Corp"],
-                    "preserved_projects": ["RoleSail"],
-                    "preserved_school": "Example University",
-                    "real_metrics": ["50% faster"],
-                },
-                "custom_section": {"keep": True},
-            }
-        ),
-        encoding="utf-8",
-    )
-    search_path.write_text(
-        yaml.safe_dump(
-            {
-                "defaults": {
-                    "location": "Canada",
-                    "distance": 25,
-                    "hours_old": 72,
-                    "results_per_site": 50,
-                },
-                "queries": [{"query": "Software Engineer", "tier": 1}],
-                "locations": [{"location": "Canada", "remote": True}],
-                "allowed_countries": ["Canada", "United States"],
-                "location_accept": ["Toronto"],
-                "location_reject_non_remote": ["India"],
-                "priority_titles": ["Backend Engineer", "Custom Title"],
-                "exclude_titles": ["Senior Director"],
-                "custom_search_key": "keep",
-                "custom_null": None,
-            },
-            sort_keys=False,
-        ),
-        encoding="utf-8",
-    )
-    resume_path.write_text("Existing resume\nExperience\n", encoding="utf-8")
-    resume_tex_path.write_text(
-        "\\documentclass{article}\n\\begin{document}\nResume\n\\end{document}\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(dashboard_server.config, "PROFILE_PATH", profile_path)
-    monkeypatch.setattr(dashboard_server.config, "SEARCH_CONFIG_PATH", search_path)
-    monkeypatch.setattr(dashboard_server.config, "RESUME_PATH", resume_path)
-    monkeypatch.setattr(
-        dashboard_server.config,
-        "RESUME_TEX_PATH",
-        resume_tex_path,
-    )
-    monkeypatch.setattr(dashboard_server.config, "RESUME_PDF_PATH", resume_pdf_path)
-    monkeypatch.setattr(
-        dashboard_server,
-        "_compile_latex_resume",
-        lambda content: b"%PDF-1.4\n% fake tectonic output\n",
-    )
-    return profile_path, search_path
-
-
-def test_dashboard_settings_redact_and_preserve_password(settings_files) -> None:
-    profile_path, _ = settings_files
-    settings = load_dashboard_settings()
-
-    assert settings["password_configured"] is True
-    assert "password" not in settings["profile"]["personal"]
-
-    profile = settings["profile"]
-    profile["experience"]["target_role"] = "Backend Engineer"
-    profile["experience"]["years_of_experience_total"] = "2.5"
-    profile["compensation"] = {"salary_expectation": "100000"}
-    saved = save_dashboard_profile(profile)
-
-    stored = json.loads(profile_path.read_text(encoding="utf-8"))
-    assert stored["personal"]["password"] == "stored-secret"
-    assert stored["experience"]["target_role"] == "Backend Engineer"
-    assert stored["experience"]["years_of_experience_total"] == 2.5
-    assert stored["compensation"]["salary_expectation"] == 100000
-    assert stored["custom_section"] == {"keep": True}
-    assert "password" not in saved["profile"]["personal"]
-
-
-def test_dashboard_search_settings_save_yaml(settings_files) -> None:
-    _, search_path = settings_files
-    searches = load_dashboard_settings()["searches"]
-    searches["queries"].append({"query": "AI Engineer", "tier": "2"})
-    searches["defaults"]["distance"] = "30"
-    searches["locations"][0]["remote"] = "false"
-
-    save_dashboard_searches(searches)
-
-    stored = yaml.safe_load(search_path.read_text(encoding="utf-8"))
-    assert stored["queries"][-1] == {"query": "AI Engineer", "tier": 2}
-    assert stored["defaults"]["distance"] == 30
-    assert stored["locations"][0]["remote"] is False
-    assert stored["custom_search_key"] == "keep"
-
-
-def test_dashboard_search_settings_reject_invalid_tier(settings_files) -> None:
-    searches = load_dashboard_settings()["searches"]
-    searches["queries"][0]["tier"] = 9
-    with pytest.raises(ValueError, match="tiers"):
-        save_dashboard_searches(searches)
-
-
-def test_dashboard_search_settings_reject_non_text_values(settings_files) -> None:
-    searches = load_dashboard_settings()["searches"]
-    searches["queries"][0]["query"] = None
-    with pytest.raises(ValueError, match="title"):
-        save_dashboard_searches(searches)
-
-
-def test_dashboard_tag_editor_lists_round_trip_custom_values(settings_files) -> None:
-    profile_path, search_path = settings_files
-    settings = load_dashboard_settings()
-    settings["profile"]["skills_boundary"]["tools"].append("In-house Tool")
-    settings["profile"]["resume_facts"]["real_metrics"].append("99.9% uptime")
-    settings["searches"]["allowed_countries"].append("Mexico")
-    settings["searches"]["priority_titles"].append("Developer Advocate (AI)")
-
-    save_dashboard_profile(settings["profile"])
-    save_dashboard_searches(settings["searches"])
-
-    profile = json.loads(profile_path.read_text(encoding="utf-8"))
-    searches = yaml.safe_load(search_path.read_text(encoding="utf-8"))
-    assert profile["skills_boundary"]["programming_languages"] == [
-        "Python",
-        "Custom Language",
-    ]
-    assert profile["skills_boundary"]["tools"][-1] == "In-house Tool"
-    assert profile["resume_facts"]["real_metrics"][-1] == "99.9% uptime"
-    assert searches["allowed_countries"][-1] == "Mexico"
-    assert searches["priority_titles"][-1] == "Developer Advocate (AI)"
-    assert searches["exclude_titles"] == ["Senior Director"]
-
-
-def test_dashboard_settings_reject_non_text_list_items(settings_files) -> None:
-    settings = load_dashboard_settings()
-    settings["profile"]["skills_boundary"] = {"tools": [123]}
-    with pytest.raises(ValueError, match="only text"):
-        save_dashboard_profile(settings["profile"])
-
-    settings["searches"]["allowed_countries"] = ["Canada", 123]
-    with pytest.raises(ValueError, match="only text"):
-        save_dashboard_searches(settings["searches"])
-
-
-def test_dashboard_settings_reject_invalid_numbers(settings_files) -> None:
-    settings = load_dashboard_settings()
-    settings["profile"]["compensation"] = {"salary_expectation": "-1"}
-    with pytest.raises(ValueError, match="non-negative"):
-        save_dashboard_profile(settings["profile"])
-
-    settings["searches"]["defaults"]["distance"] = "nan"
-    with pytest.raises(ValueError, match="non-negative"):
-        save_dashboard_searches(settings["searches"])
-
-
-def test_salary_prompt_accepts_numeric_profile_values() -> None:
-    section = _build_salary_section(
-        {
-            "compensation": {
-                "salary_expectation": 100000,
-                "salary_currency": "CAD",
-            }
-        }
-    )
-    assert "120000" in section
-
-
-def test_dashboard_search_settings_can_clear_numeric_default(settings_files) -> None:
-    _, search_path = settings_files
-    searches = load_dashboard_settings()["searches"]
-    searches["defaults"]["distance"] = {"__rolesail_delete__": True}
-
-    save_dashboard_searches(searches)
-
-    stored = yaml.safe_load(search_path.read_text(encoding="utf-8"))
-    assert "distance" not in stored["defaults"]
-    assert "custom_null" in stored and stored["custom_null"] is None
-
-
-def test_dashboard_resume_load_and_replace(settings_files) -> None:
-    assert (
-        dashboard_server.MAX_RESUME_REQUEST_BYTES
-        >= dashboard_server.MAX_RESUME_BYTES * 6
-    )
-    result = load_dashboard_resume()
-    assert result == {
-        "exists": True,
-        "filename": "resume.txt",
-        "format": "txt",
-        "content": "Existing resume\nExperience\n",
-    }
-
-    updated = save_dashboard_resume(
-        "updated-resume.txt",
-        "Updated resume\nProjects\n",
-    )
-
-    assert updated["content"] == "Updated resume\nProjects\n"
-    assert (
-        dashboard_server.config.RESUME_PATH.read_text(encoding="utf-8")
-        == "Updated resume\nProjects\n"
-    )
-
-    latex = save_dashboard_resume(
-        "updated-resume.tex",
-        "\\documentclass{article}\n\\begin{document}\nUpdated\n\\end{document}\n",
-    )
-    assert latex["format"] == "tex"
-    assert latex["pdf_available"] is True
-    assert load_dashboard_resume("tex")["content"] == latex["content"]
-    assert (
-        dashboard_server.config.RESUME_PDF_PATH.read_bytes().startswith(b"%PDF-")
-    )
-
-
-@pytest.mark.parametrize("filename", ["resume.pdf", "../resume.txt", ""])
-def test_dashboard_resume_rejects_invalid_filename(
-    settings_files,
-    filename,
-) -> None:
-    with pytest.raises(ValueError):
-        save_dashboard_resume(filename, "Resume")
-
-
-def test_dashboard_resume_rejects_empty_content(settings_files) -> None:
-    with pytest.raises(ValueError, match="cannot be empty"):
-        save_dashboard_resume("resume.txt", " \n\t")
-
-
-def test_remove_latex_comments_preserves_escaped_and_verbatim_percent() -> None:
-    source = (
-        "% heading comment\n"
-        "Value 10\\% % inline comment\n"
-        "Escaped slash \\\\% removed\n"
-        "\\verb|literal % value| % trailing comment\n"
-        "\\begin{verbatim}\n"
-        "literal % value\n"
-        "\\end{verbatim}\n"
-        "\\begin{document}Done\\end{document}\n"
-    )
-
-    cleaned, count = dashboard_server.remove_latex_comments(source)
-
-    assert count == 4
-    assert cleaned == (
-        "\n"
-        "Value 10\\%\n"
-        "Escaped slash \\\\\n"
-        "\\verb|literal % value|\n"
-        "\\begin{verbatim}\n"
-        "literal % value\n"
-        "\\end{verbatim}\n"
-        "\\begin{document}Done\\end{document}\n"
-    )
-
-
-def test_dashboard_latex_upload_can_remove_comments(settings_files) -> None:
-    source = (
-        "% remove this\n"
-        "\\documentclass{article}\n"
-        "\\begin{document}Rate: 10\\% % and this\n"
-        "\\end{document}\n"
-    )
-
-    result = save_dashboard_resume("resume.tex", source, remove_comments=True)
-
-    assert result["comments_removed"] == 2
-    assert "% remove this" not in result["content"]
-    assert r"10\%" in result["content"]
-
-
-def test_dashboard_resume_rejects_non_boolean_remove_comments(settings_files) -> None:
-    with pytest.raises(ValueError, match="must be a boolean"):
-        save_dashboard_resume("resume.tex", "Resume", remove_comments="yes")
-
-
-def test_prepare_tex_for_tectonic_disables_pdftex_glyph_map() -> None:
-    source = (
-        "\\documentclass{article}\n"
-        "\\input{glyphtounicode}\n"
-        "\\pdfgentounicode=1\n"
-        "\\begin{document}Hi\\end{document}\n"
-    )
-    prepared = dashboard_server._prepare_tex_for_tectonic(source)
-    assert r"\input{glyphtounicode}" not in prepared.splitlines()
-    assert "% \\input{glyphtounicode}" in prepared
-    assert "% \\pdfgentounicode=1" in prepared
-    assert "\\begin{document}Hi\\end{document}" in prepared
-
-
-def test_dashboard_latex_compile_failure_keeps_previous_pdf(
-    settings_files,
-    monkeypatch,
-) -> None:
-    pdf_path = dashboard_server.config.RESUME_PDF_PATH
-    tex_path = dashboard_server.config.RESUME_TEX_PATH
-    original_tex = tex_path.read_text(encoding="utf-8")
-    pdf_path.write_bytes(b"%PDF-1.4\n% previous\n")
-
-    def fail_compile(_content: str) -> bytes:
-        raise ValueError("LaTeX compilation failed:\nmissing package")
-
-    monkeypatch.setattr(dashboard_server, "_compile_latex_resume", fail_compile)
-
-    with pytest.raises(ValueError, match="compilation failed"):
-        save_dashboard_resume(
-            "broken.tex",
-            "\\documentclass{article}\\begin{document}x\\end{document}",
-        )
-
-    assert tex_path.read_text(encoding="utf-8") == original_tex
-    assert pdf_path.read_bytes() == b"%PDF-1.4\n% previous\n"
-
-
 def test_extract_job_metadata_from_json_ld() -> None:
     metadata = extract_job_metadata(
         {
@@ -1217,11 +887,13 @@ def test_dashboard_api_imports_job(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "api.db"
     init_db(db_path)
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_http,
         "get_connection",
         lambda: get_connection(db_path),
     )
-    monkeypatch.setattr(dashboard_server, "enrich_external_job", lambda _url: None)
+    monkeypatch.setattr(dashboard_job_services, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_tasks, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_http, "enrich_external_job", lambda _url: None)
 
     def complete_discovery(server, workers):
         with server.discovery_lock:
@@ -1233,7 +905,7 @@ def test_dashboard_api_imports_job(tmp_path, monkeypatch) -> None:
             }
 
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_tasks,
         "_execute_discovery",
         complete_discovery,
     )
@@ -1242,7 +914,7 @@ def test_dashboard_api_imports_job(tmp_path, monkeypatch) -> None:
         return "complete", {"approved": 2, "failed": 1, "errors": 0}, None
 
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_tasks,
         "_run_tailoring_request",
         complete_tailoring,
     )
@@ -1434,7 +1106,7 @@ def test_tailoring_queue_runs_fifo_deduplicates_and_continues_after_error(
         )
     conn.commit()
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_tasks,
         "get_connection",
         lambda: get_connection(db_path),
     )
@@ -1461,7 +1133,7 @@ def test_tailoring_queue_runs_fifo_deduplicates_and_continues_after_error(
             return "error", None, "simulated failure"
         return "complete", {"approved": 1, "failed": 0, "errors": 0}, None
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         first = start_tailoring(server, min_score=1, limit=1, target_url=urls[0])
@@ -1513,14 +1185,14 @@ def test_tailoring_queue_skips_job_that_becomes_ineligible(tmp_path, monkeypatch
         )
     conn.commit()
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_tasks,
         "get_connection",
         lambda: get_connection(db_path),
     )
 
     first_started = threading.Event()
     release_first = threading.Event()
-    original_execute = dashboard_server._run_tailoring_request
+    original_execute = dashboard_tasks._run_tailoring_request
 
     def execute(request):
         if request["target_url"] == urls[0]:
@@ -1529,7 +1201,7 @@ def test_tailoring_queue_skips_job_that_becomes_ineligible(tmp_path, monkeypatch
             return "complete", {"approved": 1, "failed": 0, "errors": 0}, None
         return original_execute(request)
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         start_tailoring(server, min_score=1, limit=1, target_url=urls[0])
@@ -1565,7 +1237,7 @@ def test_tailoring_queue_allows_only_one_outstanding_batch(monkeypatch) -> None:
         assert release.wait(timeout=2)
         return "complete", {"approved": 0, "failed": 0, "errors": 0}, None
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         start_tailoring(server)
@@ -1589,7 +1261,7 @@ def test_cancel_tailoring_marks_running_job_and_worker_finishes_cancelled(
         (url,),
     )
     conn.commit()
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_tasks, "get_connection", lambda: get_connection(db_path))
 
     started = threading.Event()
 
@@ -1601,7 +1273,7 @@ def test_cancel_tailoring_marks_running_job_and_worker_finishes_cancelled(
             time.sleep(0.01)
         return "complete", {"approved": 1, "failed": 0, "errors": 0}, None
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         start_tailoring(server, min_score=1, limit=1, target_url=url)
@@ -1632,7 +1304,7 @@ def test_cancel_tailoring_removes_queued_job(tmp_path, monkeypatch) -> None:
             (url,),
         )
     conn.commit()
-    monkeypatch.setattr(dashboard_server, "get_connection", lambda: get_connection(db_path))
+    monkeypatch.setattr(dashboard_tasks, "get_connection", lambda: get_connection(db_path))
     started = threading.Event()
     release = threading.Event()
 
@@ -1641,7 +1313,7 @@ def test_cancel_tailoring_removes_queued_job(tmp_path, monkeypatch) -> None:
         assert release.wait(timeout=2)
         return "complete", {"approved": 1, "failed": 0, "errors": 0}, None
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         start_tailoring(server, min_score=1, limit=1, target_url=urls[0])
@@ -1670,7 +1342,7 @@ def test_tailoring_queue_can_replace_an_existing_resume(tmp_path, monkeypatch) -
     )
     conn.commit()
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_tasks,
         "get_connection",
         lambda: get_connection(db_path),
     )
@@ -1689,7 +1361,7 @@ def test_tailoring_queue_can_replace_an_existing_resume(tmp_path, monkeypatch) -
         finished.set()
         return "complete", {"approved": 1, "failed": 0, "errors": 0}, None
 
-    monkeypatch.setattr(dashboard_server, "_run_tailoring_request", execute)
+    monkeypatch.setattr(dashboard_tasks, "_run_tailoring_request", execute)
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     try:
         request = start_tailoring(server, target_url=url, replace_existing=True)
@@ -1961,7 +1633,7 @@ def test_dashboard_serves_packaged_spa_assets(tmp_path, monkeypatch) -> None:
         encoding="utf-8",
     )
     (assets / "app-abc.js").write_text("console.log('app')", encoding="utf-8")
-    monkeypatch.setattr(dashboard_server, "WEB_DIST_DIR", web_dist)
+    monkeypatch.setattr(dashboard_http, "WEB_DIST_DIR", web_dist)
 
     server = DashboardHTTPServer(("127.0.0.1", 0), DashboardRequestHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1995,7 +1667,7 @@ def test_dashboard_jobs_api_returns_empty_and_standardized_errors(
     db_path = tmp_path / "empty.db"
     init_db(db_path).close()
     monkeypatch.setattr(
-        dashboard_server,
+        dashboard_http,
         "get_connection",
         lambda: get_connection(db_path),
     )
@@ -2011,7 +1683,7 @@ def test_dashboard_jobs_api_returns_empty_and_standardized_errors(
         def fail_to_load_jobs(_connection):
             raise sqlite3.OperationalError("simulated database failure")
 
-        monkeypatch.setattr(dashboard_server, "load_dashboard_jobs", fail_to_load_jobs)
+        monkeypatch.setattr(dashboard_http, "load_dashboard_jobs", fail_to_load_jobs)
         with pytest.raises(urllib.error.HTTPError) as exc_info:
             urllib.request.urlopen(f"{base_url}/api/jobs")
         assert exc_info.value.code == 500

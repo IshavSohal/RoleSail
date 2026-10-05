@@ -1,6 +1,12 @@
+import sqlite3
 import urllib.parse
 
-from rolesail.discovery import greenhouse
+from rolesail.discovery import bigtech, greenhouse
+from rolesail.enrichment.detail import (
+    extract_apply_url_deterministic,
+    extract_description_deterministic,
+    reset_failed_linkedin_descriptions,
+)
 
 
 def _job_card(job_id: str, title: str, location: str, posted_at: str) -> str:
@@ -35,9 +41,9 @@ def test_fetch_linkedin_jobs_normalizes_deduplicates_and_paginates(monkeypatch):
             "202", "Backend Engineer", "Mountain View, CA", "2026-08-15"
         ).encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    jobs = greenhouse._fetch_linkedin_jobs(
+    jobs = bigtech._fetch_linkedin_jobs(
         {"company_id": "1337", "max_pages": 5, "page_size": 2},
         ["software engineer"],
     )
@@ -72,3 +78,78 @@ def test_bigtech_config_includes_supported_linkedin_provider():
     assert linkedin["company_id"] == "1337"
     assert linkedin["page_size"] == 10
     assert linkedin["provider"] in greenhouse.BIGTECH_FETCHERS
+
+
+class _LinkedInElement:
+    def __init__(self, text: str, tag: str, href: str | None = None):
+        self._text = text
+        self._tag = tag
+        self._href = href
+
+    def inner_text(self):
+        return self._text
+
+    def get_attribute(self, name):
+        return self._href if name == "href" else None
+
+    def evaluate(self, expression):
+        if "tagName" in expression:
+            return self._tag
+        if "parentElement" in expression:
+            return "https://www.linkedin.com/company/linkedin"
+        return None
+
+
+class _LinkedInPage:
+    url = "https://www.linkedin.com/jobs/view/123"
+
+    def query_selector(self, selector):
+        if selector == ".show-more-less-html__markup":
+            return _LinkedInElement(
+                "About the role\n" + "Build reliable software systems. " * 5,
+                "div",
+            )
+        if selector == "button.apply-button":
+            return _LinkedInElement("Apply", "button")
+        return None
+
+    def query_selector_all(self, _selector):
+        return []
+
+
+def test_linkedin_detail_markup_is_extracted_without_llm_fallback():
+    page = _LinkedInPage()
+
+    description = extract_description_deterministic(page)
+
+    assert description is not None
+    assert description.startswith("About the role\nBuild reliable software systems.")
+    assert extract_apply_url_deterministic(page) == page.url
+
+
+def test_failed_linkedin_descriptions_are_requeued_selectively():
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE jobs (site TEXT, strategy TEXT, full_description TEXT, "
+        "detail_scraped_at TEXT, detail_error TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO jobs VALUES (?, ?, ?, ?, ?)",
+        [
+            ("LinkedIn", "linkedin_careers", None, "2026-10-01", "no data extracted"),
+            ("LinkedIn", "linkedin_careers", None, "2026-10-01", "HTTP 403"),
+            ("LinkedIn", "linkedin_careers", "Complete description", "2026-10-01", None),
+            ("Other", "other", None, "2026-10-01", "no data extracted"),
+        ],
+    )
+
+    assert reset_failed_linkedin_descriptions(conn) == 1
+    rows = conn.execute(
+        "SELECT detail_scraped_at, detail_error FROM jobs ORDER BY rowid"
+    ).fetchall()
+    assert rows == [
+        (None, None),
+        ("2026-10-01", "HTTP 403"),
+        ("2026-10-01", None),
+        ("2026-10-01", "no data extracted"),
+    ]

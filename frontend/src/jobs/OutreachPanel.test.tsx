@@ -77,6 +77,8 @@ describe('OutreachPanel', () => {
   })
 
   it('opens the Send menu above when there is not enough room below', async () => {
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => { callback(0); return 0 })
     server.use(
       http.get('/api/outreach', () => HttpResponse.json({
         batch: { id: 'batch-1', status: 'ready_for_review', recipients: [{ ...recipient, status: 'ready' }] },
@@ -98,6 +100,7 @@ describe('OutreachPanel', () => {
 
     expect(await screen.findByText('Create Gmail drafts')).toBeVisible()
     await vi.waitFor(() => expect(send.parentElement).toHaveClass('open-above'))
+    animationFrame.mockRestore()
   })
 
   it('adds optional feedback when redrafting emails', async () => {

@@ -1,7 +1,7 @@
 import json
 import urllib.parse
 
-from rolesail.discovery import ats, greenhouse
+from rolesail.discovery import ats, bigtech, greenhouse
 
 
 def test_fetch_netflix_jobs_normalizes_deduplicates_and_paginates(monkeypatch):
@@ -37,9 +37,9 @@ def test_fetch_netflix_jobs_normalizes_deduplicates_and_paginates(monkeypatch):
             ]
         return json.dumps({"count": 11, "positions": positions}).encode()
 
-    monkeypatch.setattr(greenhouse, "_http_request", fake_request)
+    monkeypatch.setattr(bigtech, "_http_request", fake_request)
 
-    jobs = greenhouse._fetch_netflix_jobs(
+    jobs = bigtech._fetch_netflix_jobs(
         {"max_pages": 5}, ["software engineer"]
     )
 

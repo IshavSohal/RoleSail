@@ -16,7 +16,7 @@ from rolesail import config
 from rolesail.config import CONFIG_DIR
 from rolesail.database import get_connection, init_db, is_job_within_retention_window
 from rolesail.discovery.filters import classify_title, reconcile_unscored_jobs
-from rolesail.discovery.greenhouse import (
+from rolesail.discovery.shared import (
     _http_request,
     _normalize_description,
 )
